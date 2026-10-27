@@ -189,25 +189,25 @@
   }
   function login(prompt) {
     if (TAURI) {
-      if (!CFG.desktopClientSecret) { setStatus('error', 'В этой сборке нет секрета Desktop-клиента Google'); return; }
-      setStatus('sync');
-      desktopLogin().then(function () { SY.authed = true; saveSync(); render(); syncNow(); })
-        .catch(function (e) { setStatus('auth', 'Вход не завершён: ' + (e.message || e)); });
+      if (!CFG.desktopClientSecret) { UI.sheet = 'В этой сборке нет секрета Desktop-клиента Google'; render(); return; }
+      UI.sheet = 'busy'; render();
+      desktopLogin().then(function () { SY.authed = true; saveSync(); render(); sheetNow(); })
+        .catch(function (e) { UI.sheet = 'Вход не завершён: ' + (e.message || e); render(); });
       return;
     }
     if (!CFG.webClientId) { alert('В config.js не задан Client ID Google'); return; }
     var st = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    lsSet('oauth', { st: st, ts: Date.now() });
+    lsSet('oauth', { st: st, ts: Date.now() }); lsSet('exchange', 1);
     var q = { client_id: CFG.webClientId, redirect_uri: location.origin + location.pathname.replace(/index\.html$/, ''), response_type: 'token', scope: SCOPE, state: st, include_granted_scopes: 'true' };
     if (prompt) q.prompt = prompt;
     if (SY.hint) q.login_hint = SY.hint;
     location.assign(AUTH_URL + '?' + Object.keys(q).map(function (k) { return k + '=' + encodeURIComponent(q[k]); }).join('&'));
   }
-  /* Разбор хэша: #sheet=ID (приглашение) или ответ Google. */
+  /* Разбор хэша: #join=… (приглашение в семью) или ответ Google. Старые ссылки #sheet=… больше ничего не подключают. */
   function readHash() {
     var h = location.hash.replace(/^#/, ''); if (!h) return null;
     var p = new URLSearchParams(h), out = {};
-    if (p.get('sheet')) out.sheet = SH.parseSheetId('#sheet=' + p.get('sheet'));
+    if (p.get('join')) out.join = FK.fromCode(p.get('join'));
     if (p.get('access_token') || p.get('error')) {
       var o = lsGet('oauth'); lsSet('oauth', null);
       if (o && o.st === p.get('state')) {
@@ -219,33 +219,34 @@
     return out;
   }
 
-  /* ---------- синхронизация ---------- */
-  function scheduleSync(ms) { clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, ms == null ? 2500 : ms); }
+  /* ---------- синхронизация: семья через релей (сквозное шифрование), таблица — разовым обменом ---------- */
+  var FK = window.MFamily, RL = window.MRelay, FAMILY = { code: '', keys: null }, RS = { seq: 0, sent: {}, at: 0 };
+  async function familyUse(code) {
+    FAMILY.code = code || ''; FAMILY.keys = code ? await FK.derive(FK.fromCode(code)) : null;
+    await store.set('famcode', code || null);
+  }
+  async function relayReset() { RS = { seq: 0, sent: {}, at: 0 }; await store.set('relay', RS); }
+  function scheduleSync(ms) { clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, ms == null ? 1500 : ms); }
   function setStatus(s, err) { UI.status = s; UI.err = err || ''; var el = document.querySelector('[data-sync]'); if (el) el.outerHTML = syncChip(); }
   async function syncNow() {
     if (syncing) { again = true; return; }
-    if (!SY.sheetId) return setStatus('none');
+    if (!FAMILY.keys) return setStatus('none');
+    if (!CFG.relayUrl) return setStatus('error', 'В этой сборке не указан адрес релея');
     if (!navigator.onLine) return setStatus('offline');
-    if (!tokenValid()) return setStatus('auth');
     syncing = true; setStatus('sync');
     var seq = editSeq;
     try {
-      var api = SH.sheetsApi(hfetch, getToken, SY.sheetId);
-      var res = await SH.run({
-        api: api, now: Date.now,
+      var res = await RL.run({
+        fetch: hfetch, url: CFG.relayUrl, keys: FAMILY.keys, sent: RS.sent, seq: RS.seq,
         get: function () { return S; },
         persist: async function (Mg) { S = M.merge(S, Mg); await saveState(); }
       });
-      if (res.status === 'ok') {
-        SY.at = Date.now(); SY.rev = res.rev; if (res.title) SY.title = res.title; SY.authed = true;
-        if (editSeq === seq) SY.dirty = false;
-        await saveSync(); setStatus('ok');
-        if (res.changed) { render(); famDecrypt(); }
-      } else setStatus('busy');
+      RS = { seq: res.seq, sent: res.sent, at: Date.now() }; await store.set('relay', RS);
+      if (editSeq === seq) SY.dirty = false;
+      await saveSync(); setStatus('ok');
+      if (res.changed) { render(); famDecrypt(); }
     } catch (e) {
-      if (e.status === 401) { lsSet('token', null); setStatus('auth'); }
-      else if (e.status === 403) setStatus('denied');
-      else if (e.status === 404) setStatus('notfound');
+      if (e.status === 401 || e.status === 403) setStatus('denied');
       else if (!navigator.onLine || e instanceof TypeError) setStatus('offline');
       else setStatus('error', String(e.message || e));
     } finally {
@@ -253,18 +254,76 @@
       if (again || (SY.dirty && editSeq !== seq)) { again = false; scheduleSync(800); }
     }
   }
+  /* разовый обмен с Google Таблицей: прежний проход sheets.js, слияние в обе стороны */
+  async function sheetNow() {
+    if (!SY.sheetId) return;
+    if (!tokenValid()) { login('select_account'); return; }
+    UI.sheet = 'busy'; render();
+    try {
+      var res = await SH.run({
+        api: SH.sheetsApi(hfetch, getToken, SY.sheetId), now: Date.now,
+        get: function () { return S; },
+        persist: async function (Mg) { S = M.merge(S, Mg); await saveState(); }
+      });
+      if (res.status !== 'ok') throw new Error('Таблицу сейчас правят — попробуйте ещё раз');
+      SY.at = Date.now(); if (res.title) SY.title = res.title; SY.authed = true;
+      UI.sheet = 'ok'; editSeq++; SY.dirty = true; await saveSync();
+      scheduleSync(300); famDecrypt();
+    } catch (e) {
+      if (e.status === 401) lsSet('token', null);
+      UI.sheet = e.status === 403 ? 'Нет доступа к таблице' : e.status === 404 ? 'Таблица не найдена' : e.status === 401 ? 'Войдите в Google ещё раз'
+        : !navigator.onLine ? 'Нет сети' : String(e.message || e);
+    }
+    render();
+  }
   var ST = {
-    none: 'Таблица не подключена', offline: 'Нет сети — сохранено на устройстве', auth: 'Войдите в Google', sync: 'Синхронизация…',
-    denied: 'Нет доступа к таблице', notfound: 'Таблица не найдена', busy: 'Таблицу правят — повторю', error: 'Ошибка синхронизации'
+    none: 'Семья не настроена', offline: 'Нет сети — сохранено на устройстве', sync: 'Синхронизация…',
+    denied: 'Релей не принял ключ семьи', error: 'Ошибка синхронизации'
   };
   function syncLabel() {
-    if (UI.status === 'ok') return (window.innerWidth < 480 ? 'Синхр. ' : 'Синхронизировано ') + ago(SY.at);
-    if (UI.status === 'none' && SY.sheetId) return SY.dirty ? 'Есть несинхронизированные правки' : 'Синхронизировано ' + ago(SY.at);
+    if (UI.status === 'ok') return (window.innerWidth < 480 ? 'Синхр. ' : 'Синхронизировано ') + ago(RS.at);
     return ST[UI.status] || '';
   }
   function syncChip() {
-    var warn = /auth|denied|notfound|error|offline/.test(UI.status) || (!SY.sheetId);
+    var warn = /none|denied|error|offline/.test(UI.status);
     return '<button class="sync' + (warn ? ' warn' : '') + (UI.status === 'sync' ? ' busy' : '') + '" data-sync data-act="sync-tap"><span>' + esc(syncLabel()) + '</span></button>';
+  }
+
+  /* ссылка-приглашение: ключ семьи во фрагменте #join=… (на сервер фрагмент не уходит) */
+  function joinLink() { return 'https://rastaskin.github.io/menu/#join=' + FAMILY.code; }
+  function deviceModal() {
+    var link = joinLink();
+    modal('<div class="device"><h3>Новое устройство</h3>' +
+      '<p>Наведите камеру телефона на код или откройте ссылку на новом устройстве. В приложении на ПК и с экрана «Домой» iPhone: «Ещё» → вставьте ссылку в поле «Присоединиться».</p>' +
+      '<div class="qrbox">' + MQR.svg(link) + '</div>' +
+      '<div class="copy"><input readonly value="' + esc(link) + '" aria-label="Ссылка для нового устройства"><button type="button" class="btn" data-act="copy" data-v="' + esc(link) + '">Копировать</button></div>' +
+      '<p class="muted">Ссылка — ключ ко всем данным семьи. Отправляйте только своим и не публикуйте.</p>' +
+      '<div class="row"><button type="button" class="btn ghost" data-act="show-words">Показать 12 слов</button><button type="button" class="btn ghost" data-act="close">Готово</button></div></div>');
+  }
+  function viewDevices() {
+    var h = '<section class="box" id="devices"><h3>Синхронизация</h3>';
+    if (!FAMILY.keys) {
+      h += '<p>Устройства семьи обмениваются данными через релей. Всё шифруется на устройстве — сервер видит только шифр. Регистрации нет: устройства объединяет ключ семьи.</p>' +
+        '<div class="row"><button type="button" class="btn" data-act="family-new">Создать семью</button></div>' +
+        '<form class="add" data-form="join"><input name="code" autocomplete="off" placeholder="Ссылка-приглашение или 12 слов" aria-label="Ссылка-приглашение или 12 слов" required><button class="btn ghost">Присоединиться</button></form>';
+    } else {
+      h += '<p>Последняя синхронизация: ' + ago(RS.at) + '.</p>' +
+        '<div class="row"><button type="button" class="btn" data-act="add-device">Добавить устройство</button><button type="button" class="btn ghost" data-act="sync-now">Синхронизировать</button></div>' +
+        '<button type="button" class="link danger" data-act="family-leave">Отключить устройство от семьи</button>';
+    }
+    if (UI.err) h += '<p class="muted">' + esc(UI.err) + '</p>';
+    return h + '</section>';
+  }
+  function viewSheet() {
+    var h = '<section class="box"><h3>Google Таблица</h3><p>По желанию: обмен с таблицей по кнопке — чтобы править меню в таблице или поручить это Claude.</p>';
+    if (!SY.sheetId) return h + '<form class="add" data-form="connect"><input name="link" placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="Ссылка на таблицу" required><button class="btn ghost">Подключить</button></form></section>';
+    var busy = UI.sheet === 'busy', link = 'https://docs.google.com/spreadsheets/d/' + SY.sheetId + '/edit';
+    h += '<p><b>' + esc(SY.title || 'Таблица') + '</b><br><span class="muted">' + (busy ? 'Обмен…' : UI.sheet && UI.sheet !== 'ok' ? esc(UI.sheet) : 'Последний обмен: ' + ago(SY.at)) + '</span></p>' +
+      '<div class="row"><button type="button" class="btn ghost" data-act="sheet-now"' + (busy ? ' disabled' : '') + '>Обменяться сейчас</button>' +
+      '<a class="btn ghost" href="' + esc(link) + '" target="_blank" rel="noopener">Открыть таблицу</a></div>' +
+      (tokenValid() ? '<button type="button" class="link" data-act="logout">Выйти из Google</button>' : '') +
+      '<button type="button" class="link danger" data-act="disconnect">Отключить таблицу</button>';
+    return h + '</section>';
   }
 
   /* ---------- данные для экранов ---------- */
@@ -323,7 +382,7 @@
   function viewFamily() {
     var salt = famMeta('fam_salt'), h = '<section class="box" id="family"><h3>Семья</h3>';
     if (!salt) {
-      h += '<p>Карточка члена семьи: имя видно всем, у кого есть доступ к таблице, а аллергии, вес и заметка шифруются семейным паролем. ' +
+      h += '<p>Карточка члена семьи: имя видно на всех устройствах семьи и в таблице при обмене, а аллергии, вес и заметка шифруются семейным паролем. ' +
         'Пароль нигде не хранится: если его забыть, эти данные не восстановить. Сообщите его семье устно.</p>' +
         '<form class="add" data-form="fam-pass"><input name="p1" type="password" autocomplete="new-password" minlength="8" placeholder="Семейный пароль, от 8 знаков" aria-label="Семейный пароль" required>' +
         '<input name="p2" type="password" autocomplete="new-password" minlength="8" placeholder="Ещё раз" aria-label="Пароль ещё раз" required><button class="btn">Задать пароль</button></form>';
@@ -491,8 +550,6 @@
   }
 
   function viewMore() {
-    var link = SY.sheetId ? 'https://docs.google.com/spreadsheets/d/' + SY.sheetId + '/edit' : '';
-    var invite = SY.sheetId ? (TAURI ? 'https://rastaskin.github.io/menu/' : location.origin + location.pathname) + '#sheet=' + SY.sheetId : '';
     var h = viewFamily();
     if (UI.update) h += '<section class="box"><h3>Обновление</h3><p>Вышла версия ' + esc(UI.update.version) + '.</p><button class="btn" data-act="update">Обновить и перезапустить</button></section>';
     var mode = lsGet('mode') || 'auto';
@@ -500,21 +557,7 @@
       [['auto', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']].map(function (x) {
         return '<button type="button" class="' + (mode === x[0] ? 'on' : '') + '" data-act="mode" data-v="' + x[0] + '" aria-pressed="' + (mode === x[0]) + '">' + x[1] + '</button>';
       }).join('') + '</div></section>';
-    h += '<section class="box"><h3>Синхронизация</h3>';
-    if (!SY.sheetId) {
-      h += '<p>Вставьте ссылку на свою Google Таблицу с меню или откройте ссылку-приглашение.</p>' +
-        '<form class="add" data-form="connect"><input name="link" placeholder="https://docs.google.com/spreadsheets/d/…" required><button class="btn">Подключить</button></form>';
-    } else {
-      h += '<p><b>' + esc(SY.title || 'Таблица') + '</b><br><span class="muted">Последняя синхронизация: ' + ago(SY.at) + '</span></p>' +
-        '<div class="row"><button class="btn" data-act="sync-now">Синхронизировать</button>' +
-        (tokenValid() ? '<button class="btn ghost" data-act="logout">Выйти из Google</button>' : '<button class="btn" data-act="login">Войти в Google</button>') +
-        '<a class="btn ghost" href="' + esc(link) + '" target="_blank" rel="noopener">Открыть таблицу</a></div>' +
-        '<p class="muted">Ссылка для второго устройства и для членов семьи (таблицей нужно поделиться с их Google-аккаунтами):</p>' +
-        '<div class="copy"><input readonly value="' + esc(invite) + '"><button class="btn" data-act="copy" data-v="' + esc(invite) + '">Копировать</button></div>' +
-        '<button class="link danger" data-act="disconnect">Отключить таблицу</button>';
-    }
-    if (UI.err) h += '<p class="muted">' + esc(UI.err) + '</p>';
-    h += '</section>';
+    h += viewDevices() + viewSheet();
     var rules = M.list(S, 'rules').sort(function (a, b) { return a.id < b.id ? -1 : 1; });
     if (rules.length) h += '<section class="box"><h3>Правила на эти недели</h3>' + rules.map(function (r) { return '<p><b>' + esc(r.title) + '.</b> ' + esc(r.text) + '</p>'; }).join('') + '</section>';
     h += '<section class="box"><h3>Копия данных</h3><div class="row"><button class="btn ghost" data-act="export">Скачать JSON</button>' +
@@ -524,7 +567,7 @@
   }
 
   function emptyState() {
-    return '<div class="empty"><h2>Меню пока пустое</h2><p>Подключите Google Таблицу во вкладке «Ещё» — меню, покупки и рецепты подтянутся оттуда.</p>' +
+    return '<div class="empty"><h2>Меню пока пустое</h2><p>Во вкладке «Ещё» создайте семью или присоединитесь к ней по ссылке — меню, покупки и рецепты подтянутся с других устройств. Можно и сразу добавлять блюда.</p>' +
       '<button class="btn" data-act="tab" data-tab="more">Открыть «Ещё»</button></div>';
   }
 
@@ -640,12 +683,17 @@
       case 'recipe-new': recipeEditor(''); break;
       case 'recipe-edit': recipeEditor(id); break;
       case 'recipe-del': closeModal(); commit(function (c) { c.del('recipes', id); }); break;
-      case 'sync-tap': if (UI.status === 'auth') login(''); else if (!SY.sheetId) { UI.tab = 'more'; render(); } else syncNow(); break;
+      case 'sync-tap': if (!FAMILY.keys) { UI.tab = 'more'; render(); } else syncNow(); break;
+      case 'sheet-now': sheetNow(); break;
+      case 'add-device': deviceModal(); break;
+      case 'show-words': FK.toWords(FK.fromCode(FAMILY.code)).then(function (w) { b.outerHTML = '<p class="words">' + esc(w) + '</p>'; }); break;
+      case 'family-new': (async function () { await familyUse(FK.toCode(FK.newRoot())); await relayReset(); render(); syncNow(); deviceModal(); })(); break;
+      case 'family-leave': if (confirm('Отключить это устройство от семьи? Данные на устройстве останутся, обмен прекратится.')) (async function () { await familyUse(''); await relayReset(); setStatus('none'); render(); })(); break;
       case 'sync-now': syncNow(); break;
       case 'login': login('select_account'); break;
-      case 'logout': lsSet('token', null); SY.authed = false; saveSync(); setStatus('auth');
+      case 'logout': lsSet('token', null); SY.authed = false; saveSync();
         if (TAURI) { DESK.signed = false; invoke('google_logout'); } render(); break;
-      case 'disconnect': if (confirm('Отключить таблицу на этом устройстве? Данные на устройстве останутся.')) { SY = {}; saveSync(); setStatus('none'); render(); } break;
+      case 'disconnect': if (confirm('Отключить таблицу? Данные на устройстве и в семье останутся.')) { SY = { dirty: SY.dirty }; saveSync(); render(); } break;
       case 'copy': { var v = b.getAttribute('data-v'); (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(function () { b.textContent = 'Скопировано'; }, function () { prompt('Скопируйте ссылку', v); }); break; }
       case 'export': exportJson(); break;
       case 'member-edit': memberEditor(id); break;
@@ -712,11 +760,19 @@
         })();
         break;
       }
+      case 'join': {
+        var raw = g('code'), code0 = FK.fromCode(raw);
+        (async function () {
+          var r = code0 || await FK.fromWords(raw);
+          if (!r) { alert('Не похоже на ссылку-приглашение или 12 слов'); return; }
+          await joinFamily(FK.toCode(r));
+        })();
+        break;
+      }
       case 'connect': {
         var sid = SH.parseSheetId(g('link'));
         if (!sid) { alert('Не похоже на ссылку Google Таблицы'); break; }
-        SY = { sheetId: sid }; saveSync(); render();
-        if (tokenValid()) syncNow(); else login('select_account');
+        SY.sheetId = sid; SY.title = ''; saveSync(); render(); sheetNow();
         break;
       }
     }
@@ -755,7 +811,20 @@
   window.addEventListener('pagehide', flush);
   window.addEventListener('online', function () { scheduleSync(300); });
   window.addEventListener('offline', function () { setStatus('offline'); });
-  setInterval(function () { if (document.visibilityState === 'visible' && SY.sheetId) syncNow(); }, 60000);
+  setInterval(function () { if (document.visibilityState === 'visible' && FAMILY.keys) syncNow(); }, 30000);
+  window.addEventListener('focus', function () { if (FAMILY.keys) scheduleSync(300); });
+
+  /* присоединиться к семье: данные устройства заменяются данными семьи — чужая ссылка не уносит ваши данные */
+  async function joinFamily(code, fromLink) {
+    if (code === FAMILY.code) return;
+    var hasData = M.list(S, 'meals').length || M.list(S, 'pantry').length || M.list(S, 'family').length || M.list(S, 'shop').length || M.list(S, 'recipes').length;
+    var q = 'Присоединить это устройство к семье по ссылке?' + (fromLink ? ' Открывайте только ссылки от своих.' : '') +
+      (hasData || FAMILY.code ? ' Данные на этом устройстве будут заменены данными семьи.' : '');
+    if ((fromLink || hasData || FAMILY.code) && !confirm(q)) return;
+    S = M.blank(); await saveState();
+    await familyUse(code); await relayReset();
+    UI.tab = 'today'; lsSet('tab', 'today'); render(); syncNow();
+  }
 
   async function init() {
     var h = readHash();
@@ -764,36 +833,18 @@
     if (st2) S = M.merge(S, M.normalize(st2));
     SY = (await store.get('sync')) || {};
     UI.tab = lsGet('tab') || 'today'; if (!/^(today|menu|shop|home|recipes|more)$/.test(UI.tab)) UI.tab = 'today';
-    if (h && h.sheet && h.sheet !== SY.sheetId) {
-      /* ссылка на другую таблицу: только с согласия, и данные этого устройства в неё не уходят */
-      var hasData = M.list(S, 'meals').length || M.list(S, 'pantry').length || M.list(S, 'family').length;
-      if (!SY.sheetId && !hasData) { SY = { sheetId: h.sheet }; await saveSync(); }
-      else if (confirm('Ссылка ведёт на другую Google Таблицу. Подключить её? Данные этого устройства будут заменены данными из неё и в неё не отправятся.')) {
-        S = M.blank(); await saveState(); SY = { sheetId: h.sheet }; await saveSync();
-      }
-    }
-    if (h && h.login === 'ok') { SY.authed = true; await saveSync(); }
     IMG = (await store.get('imgs')) || {};
     await famLoadKey();
-    /* с экрана «Домой» iPhone открывает start_url без #sheet=… — подключаем семейную таблицу сами */
-    if (!SY.sheetId && CFG.sheetId) { SY.sheetId = CFG.sheetId; await saveSync(); }
+    var code = await store.get('famcode'); if (code && FK.fromCode(code)) await familyUse(code);
+    RS = (await store.get('relay')) || RS;
     if (TAURI) {
       try { DESK.signed = await invoke('google_signed_in'); } catch (e) { }
     }
     render();
-    if (!SY.sheetId) { setStatus('none'); return; }
-    if (TAURI) {
-      if (TAURI.updater) TAURI.updater.check().then(function (u) { if (u) { UI.update = u; render(); } }).catch(function () { });
-      if (tokenValid()) syncNow(); else setStatus('auth');
-      return;
-    }
-    if (!tokenValid()) {
-      var tried = false; try { tried = !!sessionStorage.getItem('menu.silent'); } catch (e) { }
-      if (navigator.onLine && SY.authed && !tried && !(h && h.login)) { try { sessionStorage.setItem('menu.silent', '1'); } catch (e) { } login('none'); return; }
-      setStatus('auth'); return;
-    }
-    try { sessionStorage.removeItem('menu.silent'); } catch (e) { }
-    syncNow();
+    if (TAURI && TAURI.updater) TAURI.updater.check().then(function (u) { if (u) { UI.update = u; render(); } }).catch(function () { });
+    if (h && h.join) await joinFamily(FK.toCode(h.join), true);
+    if (h && h.login) { var ex = lsGet('exchange'); lsSet('exchange', null); if (h.login === 'ok' && ex) { UI.tab = 'more'; render(); sheetNow(); } }
+    if (FAMILY.keys) syncNow(); else setStatus('none');
   }
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () { });

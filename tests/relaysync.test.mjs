@@ -1,0 +1,56 @@
+import test from 'node:test';
+import assert from 'node:assert';
+import { createRequire } from 'node:module';
+import { handle, handleFamily, memoryStore } from '../relay/src/core.js';
+const require = createRequire(import.meta.url);
+const M = require('../web/model.js'), F = require('../web/family.js'), R = require('../web/relay.js');
+const seed = require('../tools/seed.json');
+
+/* релей в памяти; fetch как у устройства; snoop — что видел сервер */
+function fakeRelay() {
+  const stores = new Map(), seen = [];
+  const env = { ALLOWED_ORIGINS: '' };
+  const fetch = async (url, init = {}) => {
+    if (init.body) seen.push(init.body);
+    return handle(new Request(url, init), env, (fid, req, op) => { if (!stores.has(fid)) stores.set(fid, memoryStore()); return handleFamily(req, stores.get(fid), op); });
+  };
+  return { fetch, seen };
+}
+function device(relay, keys, S0) {
+  const d = { S: M.normalize(S0 || {}), sent: {}, seq: 0 };
+  d.sync = async () => {
+    const r = await R.run({ fetch: relay.fetch, url: 'https://relay.example', keys, get: () => d.S, persist: async (S) => { d.S = S; }, sent: d.sent, seq: d.seq });
+    d.sent = r.sent; d.seq = r.seq; return r;
+  };
+  return d;
+}
+
+test('релей: два устройства сходятся, сервер видит только шифр', async () => {
+  const relay = fakeRelay(), keys = await F.derive(F.newRoot());
+  const A = device(relay, keys, seed), B = device(relay, keys);
+  const first = await A.sync();
+  assert.ok(first.pushed > 50);
+  await B.sync();
+  assert.ok(M.equal(A.S, B.S), 'второе устройство получило всё');
+  assert.equal((await A.sync()).pushed, 0, 'повторно ничего не отправляется');
+  assert.equal((await B.sync()).pushed, 0, 'полученное не отправляется обратно');
+
+  const traffic = relay.seen.join('');
+  assert.doesNotMatch(traffic, /Овсянка|meals|Покупки|2026-10-27/);
+
+  // правка на B, удаление на A — обе доходят
+  M.put(B.S, 'meals', '2026-10-27/ужин', { text: 'Плов' }, Date.now() + 10);
+  M.del(A.S, 'pantry', Object.keys(A.S.pantry)[0] || 'none', Date.now() + 20);
+  M.put(A.S, 'family', 'f1', { name: 'Член семьи', color: 'mint' }, Date.now() + 30);
+  await B.sync(); await A.sync(); await B.sync();
+  assert.equal(A.S.meals['2026-10-27/ужин'].text, 'Плов');
+  assert.equal(B.S.family.f1.name, 'Член семьи');
+  assert.ok(M.equal(A.S, B.S));
+});
+
+test('релей: чужая семья ничего не получает', async () => {
+  const relay = fakeRelay(), k1 = await F.derive(F.newRoot()), k2 = await F.derive(F.newRoot());
+  const A = device(relay, k1, seed), X = device(relay, k2);
+  await A.sync(); await X.sync();
+  assert.equal(M.list(X.S, 'meals').length, 0);
+});

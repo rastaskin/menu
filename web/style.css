@@ -218,6 +218,10 @@ main { padding-top: var(--space-2xs); }
 .box h3 { margin-top: 0; }
 .box p + p { margin-top: var(--space-xs); }
 .copy { display: flex; gap: var(--space-xs); margin-top: var(--space-xs); } .copy input { flex: 1; }
+.qrbox { display: flex; justify-content: center; margin: var(--space-md) 0; }
+.qr { width: min(240px, 70vw); height: auto; border-radius: var(--radius-input); }
+.qr-bg { fill: var(--color-qr-bg); } .qr-fg { fill: var(--color-qr-fg); }
+.words { font-family: ui-monospace, Consolas, monospace; background: var(--color-paper-2); border-radius: var(--radius-input); padding: var(--space-sm); margin-top: var(--space-xs); word-spacing: 0.3em; user-select: all; }
 .empty { background: var(--color-card); border-radius: var(--radius-card); padding: var(--space-xl); margin-top: var(--space-sm); box-shadow: var(--shadow-card); max-width: 640px; }
 .empty h2 { margin-bottom: var(--space-xs); }
 .empty p { margin-bottom: var(--space-md); }

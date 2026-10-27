@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://sheets.googleapis.com; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
-<meta name="description" content="Семейный планировщик питания: меню на неделю, покупки, продукты дома и рецепты. Данные в вашей Google Таблице.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://sheets.googleapis.com https://menu-relay.menu-relay.workers.dev; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="description" content="Семейный планировщик питания: меню на неделю, покупки, продукты дома и рецепты. Работает без сети, устройства семьи синхронизируются со сквозным шифрованием.">
 <meta name="theme-color" content="#f6f1df">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -25,6 +25,10 @@
 <script src="vault.js"></script>
 <script src="model.js"></script>
 <script src="sheets.js"></script>
+<script src="bip39-en.js"></script>
+<script src="family.js"></script>
+<script src="relay.js"></script>
+<script src="qr.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

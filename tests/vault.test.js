@@ -6,10 +6,10 @@ const M = require('../web/model.js');
 test('семья: шифр карточки расшифровывается тем же паролем и только им', async () => {
   const salt = V.newSalt();
   const key = await V.deriveKey('пароль семьи', salt);
-  const card = { allergies: 'арахис, киви', weight: '64', note: 'без острого' };
+  const card = { allergies: 'арахис, киви', weight: '64,5', note: 'без острого' };
   const enc = await V.seal(key, card, 'f1');
   assert.match(enc, /^v1\.[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+$/);
-  assert.doesNotMatch(enc, /арахис|64/);
+  assert.doesNotMatch(enc, /арахис|64,5/);
   assert.deepEqual(await V.open(key, enc, 'f1'), card);
 
   const wrong = await V.deriveKey('другой пароль', salt);

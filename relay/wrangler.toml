@@ -1,0 +1,15 @@
+# Релей «Меню»: хранит только шифр. Выкладка: npx wrangler deploy (из папки relay).
+name = "menu-relay"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://rastaskin.github.io,http://tauri.localhost,tauri://localhost"
+
+[[durable_objects.bindings]]
+name = "FAMILY"
+class_name = "Family"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Family"]

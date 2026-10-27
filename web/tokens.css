@@ -35,6 +35,8 @@
   --tag-o-bg: var(--color-paper-3); --tag-o-ink: var(--color-ink-2);
   --color-warn: oklch(50% 0.17 27); --color-warn-bg: oklch(94% 0.04 27);
   --color-scrim: oklch(20% 0.014 255 / 0.42);
+  /* QR-код всегда тёмный на светлом: камеры хуже читают инверсию; в тёмной теме не переопределяется */
+  --color-qr-bg: oklch(99% 0 0); --color-qr-fg: oklch(16% 0.01 255);
   --shadow-sheet: 0 -12px 40px -12px oklch(20% 0.014 255 / 0.35);
   --edge-rest: 5px; --edge-hover: 7px; --edge-press: 1px;
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .27 0 0 0 0 .12 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
