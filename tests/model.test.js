@@ -77,3 +77,14 @@ test('продукты рецепта: разбор строк и наличие
   assert.deepEqual(st['сметана 15%'], [], 'просроченное не считается');
   assert.deepEqual(st['морковь'], []);
 });
+
+test('рецепт к блюду: по словам, самое длинное совпадение, без пояснения в скобках', () => {
+  const S = M.normalize({ recipes: [
+    { id: 'r1', name: 'Кейран-ччим' }, { id: 'r2', name: 'Плов с курицей (на 2 дня)' }, { id: 'r3', name: 'Плов' }, { id: 'r4', name: 'Рис' }
+  ] });
+  assert.equal(M.recipeFor(S, 'Кейран-ччим (омлет на пару) + рис').id, 'r1');
+  assert.equal(M.recipeFor(S, 'Плов с курицей + салат').id, 'r2', 'длинное совпадение важнее короткого');
+  assert.equal(M.recipeFor(S, 'Ирис и чай'), null, 'только целые слова');
+  assert.equal(M.recipeFor(S, 'Кейран').id, 'r1', 'блюдо — часть названия рецепта');
+  assert.equal(M.recipeFor(S, ''), null);
+});

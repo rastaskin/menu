@@ -193,6 +193,20 @@
     });
   }
   /* Наличие продуктов рецепта: [{ name, home: [записи «Дома»] }]. */
+  /* Рецепт к блюду из меню. Название рецепта без пояснения в скобках целиком (по словам) входит в текст блюда —
+     берём самое длинное совпадение («Кейран-ччим (омлет на пару) + рис» → «Кейран-ччим»); иначе текст блюда
+     входит в название рецепта («Плов» → «Плов с курицей»). Нет совпадений — null. */
+  function recipeFor(S, text) {
+    var t = norm(text), best = null, bl = 0, part = null;
+    if (!t) return null;
+    list(S, 'recipes').sort(function (a, b) { return a.id < b.id ? -1 : 1; }).forEach(function (r) {
+      var k = norm(String(r.name || '').split('(')[0]);
+      if (k.length < 3) return;
+      if ((' ' + t + ' ').indexOf(' ' + k + ' ') >= 0) { if (k.length > bl) { best = r; bl = k.length; } }
+      else if (!part && t.length >= 4 && (' ' + k + ' ').indexOf(' ' + t + ' ') >= 0) part = r;
+    });
+    return best || part;
+  }
   function recipeStock(S, text, day) {
     return ingredients(text).map(function (g) {
       var home = [];
@@ -204,7 +218,7 @@
   var api = {
     COLS: COLS, NAMES: NAMES, SLOTS: SLOTS, TOMB_TTL: TOMB_TTL, blank: blank, normalize: normalize, clean: clean, cast: cast,
     put: put, del: del, merge: merge, equal: equal, clone: clone, list: list, stable: stable,
-    norm: norm, productKey: productKey, pantryMatches: pantryMatches, ingredients: ingredients, recipeStock: recipeStock, okId: okId
+    norm: norm, productKey: productKey, pantryMatches: pantryMatches, ingredients: ingredients, recipeStock: recipeStock, recipeFor: recipeFor, okId: okId
   };
   if (typeof module === 'object' && module.exports) module.exports = api; else root.MModel = api;
 })(typeof self !== 'undefined' ? self : this);

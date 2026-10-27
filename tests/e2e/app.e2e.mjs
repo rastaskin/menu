@@ -69,6 +69,7 @@ test('приложение: таблица по кнопке, семья чер�
     // заменить ужин
     await p.click('.tabs [data-tab="menu"]');
     await p.click('#d2026-10-27 [data-slot="ужин"].mtxt');
+    await p.click('#modal [data-act="meal-edit"]');   // блюдо открывает карточку рецепта, отсюда — окно блюда
     await p.fill('#modal textarea', 'Плов с курицей');
     await p.click('#modal button.btn:has-text("Сохранить")');
     assert.match(await p.textContent('#d2026-10-27'), /Плов с курицей/);

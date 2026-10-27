@@ -24,6 +24,24 @@ test('неделя — доска: перенос мышью и пальцем �
     await p.waitForSelector('[data-board] .col');
     await p.evaluate(() => { document.querySelector('[data-board]').scrollLeft = 0; });   // доска открывается на сегодняшнем дне — начинаем с первого
 
+    // нажатие на блюдо — та же карточка, что в «Рецептах»; нет рецепта — новая с названием блюда
+    await p.click(place(D2, 'завтрак') + ' .mtxt');
+    assert.equal(await p.textContent('#modal h3'), 'Рецепт');
+    assert.equal(await p.inputValue('#modal [name="name"]'), 'Кейран-ччим');
+    assert.match(await p.textContent('#modal .from'), /Завтрак, ср 28\.10/);
+    await p.waitForTimeout(600); await p.screenshot({ path: 'tests/e2e/shot-week-recipe.png' });
+    await p.click('#modal [data-act="close"].btn');
+    await p.click(place(D1, 'перекус') + ' .mtxt');
+    assert.equal(await p.textContent('#modal h3'), 'Новый рецепт');
+    assert.equal(await p.inputValue('#modal [name="name"]'), 'Кефир + яблоко');
+    await p.fill('#modal [name="text"]', 'Кефир налить, яблоко нарезать.');
+    await p.click('#modal button.btn:has-text("Сохранить")');
+    await p.click(place(D1, 'перекус') + ' .mtxt');
+    assert.equal(await p.textContent('#modal h3'), 'Рецепт', 'теперь у блюда есть рецепт');
+    await p.click('#modal [data-act="meal-edit"]');
+    assert.equal(await p.inputValue('#modal textarea[name="text"]'), 'Кефир + яблоко', 'окно блюда открылось из карточки рецепта');
+    await p.click('#modal [data-act="close"].btn');
+
     // мышь: ужин понедельника на обед вторника — занятое место меняется местами, окно блюда не открывается
     const a = await meal(p, D1, 'ужин'), b = await meal(p, D2, 'обед');
     let from = await center(p, place(D1, 'ужин') + ' .card'), to = await center(p, place(D2, 'обед'));
@@ -68,6 +86,7 @@ test('неделя — доска: перенос мышью и пальцем �
     // без мыши: перенос из окна блюда (день и приём), занятое место меняется
     const e = await meal(p, D2, 'перекус');
     await p.click(place(D1, 'полдник') + ' .mtxt');
+    await p.click('#modal [data-act="meal-edit"]');
     await p.selectOption('#modal [name="to_date"]', D2); await p.selectOption('#modal [name="to_slot"]', 'перекус');
     await p.click('#modal button.btn:has-text("Сохранить")');
     await p.waitForFunction(([d]) => Object.values(window.__menu.S.meals).some((x) => x.date === d && x.slot === 'перекус' && x.text === 'Творог с ягодами'), [D2]);

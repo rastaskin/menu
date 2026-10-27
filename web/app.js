@@ -95,10 +95,10 @@
     var u = IMG[imgKey(kind, k)];
     return u ? '<img class="fi fi-img' + (cls ? ' ' + cls : '') + '" src="' + u + '" alt="">' : F.html(text, cls);
   }
-  /* блюдо в меню получает картинку рецепта, если название рецепта есть в тексте */
+  /* блюдо в меню получает картинку своего рецепта (M.recipeFor), если она есть */
   function mealPic(text) {
-    var t = M.norm(text), r = M.list(S, 'recipes').filter(function (x) { return x.name && IMG[imgKey('r', x.name)] && t.indexOf(M.norm(x.name).split(' (')[0]) >= 0; })[0];
-    return r ? pic('r', r.name, text) : F.html(text);
+    var r = M.recipeFor(S, text);
+    return r && IMG[imgKey('r', r.name)] ? pic('r', r.name, text) : F.html(text);
   }
   /* файл → JPEG data URL; square — центральный квадрат (для картинок продуктов и рецептов), иначе всё фото */
   async function toJpeg(file, max, square) {
@@ -594,7 +594,7 @@
     return '<li class="place" data-drop' + at + '><div class="card' + (m.done ? ' done' : '') + (s === 'с собой' ? ' go' : '') + '" data-drag data-id="' + esc(m.id) + '">' +
       '<div class="ctop">' + mealPic(m.text) + '<span class="lbl" aria-hidden="true">' + esc(slotLabel(s)) + '</span>' +
       '<button class="chk" data-act="meal-done"' + at + ' aria-label="Съели: ' + esc(slotLabel(s)) + '" aria-pressed="' + !!m.done + '">' + (m.done ? ICO.check : '') + '</button></div>' +
-      '<button class="mtxt" data-act="meal-edit"' + at + ' aria-label="' + esc(slotLabel(s) + ': ' + m.text) + '"><span class="dish">' + esc(m.text) + '</span></button></div></li>';
+      '<button class="mtxt" data-act="meal-open"' + at + ' aria-haspopup="dialog" aria-label="' + esc(slotLabel(s) + ': ' + m.text) + '"><span class="dish">' + esc(m.text) + '</span></button></div></li>';
   }
 
   function viewShop() {
@@ -783,13 +783,24 @@
       '<div class="row"><button class="btn">Сохранить</button><button type="button" class="btn ghost" data-act="close">Отмена</button>' +
       '<button type="button" class="link danger" data-act="pantry-gone" data-id="' + esc(id) + '">Закончилось</button></div></form>');
   }
-  function recipeEditor(id) {
-    var r = id ? S.recipes[id] : null;
-    modal('<form data-form="recipe" data-id="' + esc(id || '') + '"><h3>' + (r ? 'Рецепт' : 'Новый рецепт') + '</h3>' + (r && r.name ? picEditor('r', r.name) : '') +
-      '<label>Название<input name="name" value="' + esc(r ? r.name : '') + '" required></label>' + (r ? recipeStockHtml(r.text) : '') +
+  /* карточка рецепта; meal = {date, slot, name} — открыта из «Недели»: подпись дня и ссылка на окно блюда */
+  function recipeEditor(id, meal) {
+    var r = id ? S.recipes[id] : null, at = meal ? ' data-date="' + meal.date + '" data-slot="' + esc(meal.slot) + '"' : '';
+    modal('<form data-form="recipe" data-id="' + esc(id || '') + '"><h3>' + (r ? 'Рецепт' : 'Новый рецепт') + '</h3>' +
+      (meal ? '<p class="from">' + esc(slotLabel(meal.slot)) + ', ' + wd(meal.date).toLowerCase() + ' ' + dm(meal.date) + (r ? '' : ' — рецепта для этого блюда пока нет') + '</p>' : '') +
+      (r && r.name ? picEditor('r', r.name) : '') +
+      '<label>Название<input name="name" value="' + esc(r ? r.name : meal ? meal.name : '') + '" required></label>' + (r ? recipeStockHtml(r.text) : '') +
       '<label>Как готовить<textarea name="text" rows="6">' + esc(r ? r.text || '' : '') + '</textarea></label>' +
       '<div class="row"><button class="btn">Сохранить</button><button type="button" class="btn ghost" data-act="close">Отмена</button>' +
+      (meal ? '<button type="button" class="link" data-act="meal-edit"' + at + '>Изменить блюдо в меню</button>' : '') +
       (r ? '<button type="button" class="link danger" data-act="recipe-del" data-id="' + esc(id) + '">Удалить</button>' : '') + '</div></form>');
+  }
+  /* блюдо из «Недели» открывает ту же карточку, что и в «Рецептах»; рецепта нет — новая карточка с названием блюда */
+  function mealOpen(date, slot) {
+    var m = mealAt(date, slot);
+    if (!m || !m.text) return mealEditor(date, slot);
+    var r = M.recipeFor(S, m.text);
+    recipeEditor(r ? r.id : '', { date: date, slot: slot, name: m.text });
   }
   function cookEditor(date) {
     var d = dayRec(date) || {};
@@ -840,6 +851,7 @@
       case 'close': closeModal(); break;
       case 'meal-edit': mealEditor(date, slot); break;
       case 'meal-add': mealAdd(date); break;
+      case 'meal-open': mealOpen(date, slot); break;
       case 'pick-slot': { var si = document.querySelector('#modal [name="slot"]'), se = document.querySelector('#modal .err'); if (si) { si.value = b.getAttribute('data-v'); si.focus(); } if (se) se.hidden = true; break; }
       case 'meal-done': { var m = mealAt(date, slot); if (m) commit(function (c) { c.put('meals', m.id, { done: !m.done }); }); break; }
       case 'meal-del': { var m2 = mealAt(date, slot); closeModal(); if (m2) commit(function (c) { c.del('meals', m2.id); }); break; }
