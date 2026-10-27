@@ -21,7 +21,7 @@ test('смена семьи во время синхронизации: нова
       const p = await ctx.newPage(); p.on('pageerror', (e) => errors.push(String(e))); p.on('dialog', (d) => d.accept());
       await p.goto(base); await p.click('.tabs [data-tab="more"]'); return p;
     };
-    const synced = (p) => p.waitForFunction(() => !window.__menu.SY.dirty && /Синхр/.test(document.querySelector('[data-sync]').textContent));
+    const synced = (p) => p.waitForFunction(() => !window.__menu.SY.dirty && /Синхр/.test((document.querySelector('[data-sync]') || {}).textContent));
 
     // B: маленькая семья Y с одной записью-маркером
     const B = await open();

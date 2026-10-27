@@ -4,7 +4,7 @@
   "description": "Семейный планировщик питания: local-first PWA и приложение на ПК, синхронизация через свой релей со сквозным шифрованием",
   "scripts": {
     "test": "node --test tests/*.test.js tests/*.test.mjs",
-    "test:e2e": "node --test tests/e2e/*.mjs"
+    "test:e2e": "node --test --test-concurrency=1 tests/e2e/*.mjs"
   },
   "devDependencies": {
     "jsqr": "^1.4.0",

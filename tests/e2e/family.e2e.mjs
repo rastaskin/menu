@@ -20,7 +20,7 @@ async function device(browser, base, fake, relay, hash) {
   await p.goto(base + (hash || ''));
   return p;
 }
-const synced = (p) => p.waitForFunction(() => !window.__menu.SY.dirty && /Синхр/.test(document.querySelector('[data-sync]').textContent));
+const synced = (p) => p.waitForFunction(() => !window.__menu.SY.dirty && /Синхр/.test((document.querySelector('[data-sync]') || {}).textContent));
 
 test('семья: аллергии шифруются, в таблице только имя; второе устройство открывает паролем', async () => {
   const srv = await serve(0), base = 'http://127.0.0.1:' + srv.address().port + '/';

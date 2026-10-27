@@ -1,7 +1,7 @@
 /* Hallmark · shape: app screen · genre: playful · theme: Hum (by request) · redesign: full
  * nav: sidebar on desktop (user's choice, 6 destinations), bottom tabs on phones · signature: the day's plate on «Сегодня» · states: empty, offline, auth, error, loading (sync chip)
  * axes: light/rounded-sans/chromatic-yellow · posture: full-palette · contrast: pass · modes: light+dark · v2.0.0 */
-/* Hallmark · pre-emit critique: P4 H4 E4 S4 R3 V4 · weakest: R, the week grid stays a grid of day cards (the user asked for big cards on desktop) */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · the week is a board by request: a column per day, a draggable card per dish (Notion board view) */
 /* Hallmark · waive 23 · posture: full-palette in the stamp, Hum's roles · pear is the primary and the one cooking field, mint is done */
 /* Hallmark · waive 39b · tbtn: плитка «Яйца С1» в «Покупки» с иконкой, названием и количеством · одно нажатие по всей плитке отмечает «Куплено»; .cook держит план готовки дня в две строки */
 /* Hallmark · reworded the table title in h1 to the screen name · the table title moved to the sidebar wordmark */
@@ -126,11 +126,42 @@ main { padding-top: var(--space-2xs); }
 .cook-line { display: flex; gap: var(--space-xs); align-items: flex-start; color: var(--color-ink-2); font-size: var(--text-sm); margin-bottom: var(--space-md); }
 .cook-line svg { width: 18px; height: 18px; color: var(--color-kraft); }
 
-/* ---------- неделя: карточки дней ---------- */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: var(--space-md); }
-.day { display: flex; flex-direction: column; background: var(--color-card); color: var(--color-ink); border-radius: var(--radius-card); padding: var(--space-md); box-shadow: var(--shadow-card); }
-.day.today { box-shadow: 0 0 0 3px var(--color-accent), var(--shadow-card); }
-.day.past { opacity: 0.75; }
+/* ---------- неделя: доска — колонка на день, карточка на блюдо ---------- */
+.hint { margin: 0 0 var(--space-sm); color: var(--color-muted); font-size: var(--text-sm); max-width: 60ch; }
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(216px, 1fr); gap: var(--space-sm); align-items: start; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding: var(--space-3xs) var(--space-3xs) var(--space-md); }
+@media (max-width: 40rem) { .board { grid-auto-columns: 84%; scroll-snap-type: x mandatory; margin-inline: calc(-1 * var(--space-md)); padding-inline: var(--space-md); scroll-padding-inline: var(--space-md); } }
+.col { scroll-snap-align: start; display: flex; flex-direction: column; min-width: 0; background: var(--color-paper-2); color: var(--color-ink); border-radius: var(--radius-card); padding: var(--space-sm); }
+.col.today { box-shadow: inset 0 0 0 3px var(--color-accent); }
+.col.past .card, .col.past .slot-empty { opacity: 0.75; }
+.places { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-xs); }
+.place { border-radius: var(--radius-stock); transition: box-shadow var(--dur-short) var(--ease-snap), background-color var(--dur-short) var(--ease-snap); }
+.place.over { background: var(--color-accent); box-shadow: 0 0 0 2px var(--color-accent-deep); }
+.card { display: flex; flex-direction: column; gap: var(--space-2xs); background: var(--color-card); color: var(--color-ink); border-radius: var(--radius-stock); padding: var(--space-xs); box-shadow: var(--shadow-card); cursor: grab; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; transition: opacity var(--dur-short) var(--ease-snap); }
+.card.go { background: var(--tag-a-bg); color: var(--color-ink); }
+.ctop { display: flex; align-items: center; gap: var(--space-xs); }
+.ctop .lbl { flex: 1; min-width: 0; }
+.card .fi { width: 32px; height: 32px; }
+.card .chk { width: 36px; height: 36px; }
+.card .mtxt { font-size: var(--text-sm); padding: 0 var(--space-3xs) var(--space-3xs); min-height: 32px; }
+.card .dish { font-weight: 700; overflow-wrap: break-word; hyphens: auto; }
+.card.lifted { opacity: 0.3; }
+.drag-ghost { position: fixed; left: 0; top: 0; z-index: var(--z-toast); pointer-events: none; box-shadow: var(--shadow-sheet), var(--shadow-card); }
+html.dragging, html.dragging * { cursor: grabbing !important; }
+.slot-empty { display: flex; flex-direction: column; gap: var(--space-3xs); width: 100%; min-height: 56px; justify-content: center; border: 1.5px dashed var(--color-edge); background: none; border-radius: var(--radius-stock); padding: var(--space-xs) var(--space-sm); text-align: left; font-size: var(--text-sm); color: var(--color-muted); transition: border-color var(--dur-short) var(--ease-snap), color var(--dur-short) var(--ease-snap); }
+.slot-empty:hover { border-color: var(--color-ink); color: var(--color-ink); }
+.slot-empty:active { transform: translateY(1px); }
+.place.over .slot-empty { border-color: var(--color-accent-ink); color: var(--color-accent-ink); }
+.add-meal { display: flex; align-items: center; gap: var(--space-2xs); min-height: 44px; margin-top: var(--space-xs); border: 0; background: none; border-radius: var(--radius-stock); padding: 0 var(--space-xs); font-weight: 700; font-size: var(--text-sm); color: var(--color-ink-2); transition: background-color var(--dur-short) var(--ease-snap); }
+.add-meal svg { width: 18px; height: 18px; }
+.add-meal:hover { background: var(--color-paper-3); color: var(--color-ink); }
+.add-meal:active { transform: translateY(1px); }
+.sheet .move { border: 0; margin: var(--space-xs) 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.sheet .move legend { font-size: var(--text-sm); color: var(--color-muted); font-weight: 700; padding: 0; margin-bottom: var(--space-2xs); }
+.sheet .move select { flex: 1 1 140px; }
+.err { margin: var(--space-xs) 0 0; color: var(--color-warn); font-size: var(--text-sm); font-weight: 700; }
+.guide { margin-top: var(--space-md); border-top: 1px dashed var(--color-edge); padding-top: var(--space-sm); }
+.guide summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
+.guide pre { white-space: pre-wrap; font: var(--text-sm)/1.5 ui-monospace, Consolas, monospace; background: var(--color-paper-2); border-radius: var(--radius-input); padding: var(--space-sm); margin: var(--space-xs) 0 var(--space-sm); max-height: 320px; overflow: auto; }
 .dh { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-xs); }
 .dnum { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: var(--radius-stock); background: var(--color-paper-2); line-height: 1; }
 .dnum b { font-size: var(--text-xl); font-weight: 700; }
@@ -145,11 +176,10 @@ main { padding-top: var(--space-2xs); }
 .t-a { background: var(--tag-a-bg); color: var(--tag-a-ink); } .t-g { background: var(--tag-g-bg); color: var(--tag-g-ink); }
 .t-h { background: var(--tag-h-bg); color: var(--tag-h-ink); } .t-z { background: var(--tag-z-bg); color: var(--tag-z-ink); }
 .t-o { background: var(--tag-o-bg); color: var(--tag-o-ink); }
-.meals { display: flex; flex-direction: column; gap: var(--space-3xs); }
 .cook { display: flex; align-items: flex-start; gap: var(--space-xs); margin-top: auto; padding: var(--space-sm) 0 0; border: 0; border-top: 1px dashed var(--color-edge); background: none; text-align: left; font-size: var(--text-sm); color: var(--color-ink-2); min-height: 44px; }
 .cook svg { width: 18px; height: 18px; color: var(--color-kraft); margin-top: var(--space-3xs); }
 .cook:hover { color: var(--color-ink); }
-.meals + .link, .meals + .cook { margin-top: var(--space-xs); }
+.add-meal + .cook { margin-top: var(--space-2xs); }
 
 /* ---------- покупки и дом: плитки из картона ---------- */
 .sum { background: var(--color-card); color: var(--color-ink); border-radius: var(--radius-card); padding: var(--space-lg); box-shadow: var(--shadow-card); }

@@ -323,15 +323,52 @@
     if (UI.err) h += '<p class="muted">' + esc(UI.err) + '</p>';
     return h + '</section>';
   }
+  /* правила для чужого ИИ-агента, которому поручают таблицу; держать в согласии с docs/FORMAT.md и SHEETS в sheets.js */
+  var AGENT_GUIDE = [
+    'Ты правишь Google Таблицу семейного приложения «Меню». Приложение читает её построчно, поэтому строго соблюдай правила.',
+    '',
+    'ЛИСТЫ И СТОЛБЦЫ (первая строка — заголовки; не переименовывать, не переставлять, не добавлять и не удалять листы и столбцы):',
+    '• Меню: id, дата, приём, блюдо, съели, _u',
+    '• Дни: id, дата, день, события, готовка, _u',
+    '• Покупки: id, неделя, раздел, продукт, количество, цена, куплено, есть дома, перенесено домой, ключ, _u',
+    '• Дома: id, продукт, количество, где, годен до, заметка, _u',
+    '• Рецепты: id, название, как готовить, _u',
+    '• Правила: id, правило, текст, _u',
+    '• Настройки: ключ, значение, _u',
+    '• Удалено: запись, _u',
+    '• Семья: id, имя, цвет, данные (зашифровано), _u',
+    '',
+    'КАК ПРАВИТЬ:',
+    '1. Изменил любую ячейку — очисти _u в той же строке. Пустой _u значит «правка из таблицы», и она побеждает копии на устройствах.',
+    '2. Новая строка — уникальный id и пустой _u. Блюдо: id «ГГГГ-ММ-ДД/приём» (например 2026-11-03/ужин), день: «dГГГГ-ММ-ДД», покупка или продукт дома: любой новый id, например s-2026-11-03-1.',
+    '3. Удаление — строку НЕ стирать. Добавь на лист «Удалено» строку «коллекция:id» с пустым _u. Коллекции: meals (Меню), days (Дни), shop (Покупки), pantry (Дома), recipes (Рецепты), rules (Правила), family (Семья).',
+    '4. Даты — ГГГГ-ММ-ДД. Флажки (съели, куплено, есть дома, перенесено домой) — TRUE или пусто. Цена — число без «₽», дробная часть через точку или запятую. Неделя — число (1, 2, 3…).',
+    '5. Приём пищи — строчными: завтрак, обед, перекус, ужин, с собой или свой (например «полдник»). В одном дне на один приём — одно блюдо.',
+    '6. Дома → где: fridge (холодильник), freezer (морозилка), shelf (шкаф и полки).',
+    '7. Дни → события: через «;», префиксы a: и g: — занятость членов семьи (например «a:Учёба 9:00–15:30»), z: ужин из заготовки, h: праздник, o: прочее.',
+    '8. Новый период: добавь строки в «Дни» и «Меню» с новыми датами, покупки — с новым номером недели. Приложение само сгруппирует дни по 7.',
+    '',
+    'НЕ ТРОГАТЬ:',
+    '• столбец «данные (зашифровано)» на листе «Семья» — это шифр;',
+    '• строки _rev, fam_salt и fam_check на листе «Настройки»;',
+    '• не записывать в таблицу открытым текстом данные о здоровье (аллергии, вес, диагнозы, лекарства).',
+    '',
+    'Правки появятся на устройствах после кнопки «Обменяться сейчас» в приложении.'
+  ].join('\n');
+  function agentGuide() {
+    return '<details class="guide"><summary>Инструкция для ИИ-агента</summary>' +
+      '<p class="muted">Скопируйте и передайте агенту (ChatGPT, Gemini и др.) вместе со ссылкой на таблицу — так он не сломает формат.</p>' +
+      '<pre>' + esc(AGENT_GUIDE) + '</pre><button type="button" class="btn ghost" data-act="copy" data-v="' + esc(AGENT_GUIDE) + '">Скопировать инструкцию</button></details>';
+  }
   function viewSheet() {
     var h = '<section class="box"><h3>Google Таблица</h3><p>По желанию: обмен с таблицей по кнопке — чтобы править меню в таблице или поручить это Claude.</p>';
-    if (!SY.sheetId) return h + '<form class="add" data-form="connect"><input name="link" placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="Ссылка на таблицу" required><button class="btn ghost">Подключить</button></form></section>';
+    if (!SY.sheetId) return h + '<form class="add" data-form="connect"><input name="link" placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="Ссылка на таблицу" required><button class="btn ghost">Подключить</button></form>' + agentGuide() + '</section>';
     var busy = UI.sheet === 'busy', link = 'https://docs.google.com/spreadsheets/d/' + SY.sheetId + '/edit';
     h += '<p><b>' + esc(SY.title || 'Таблица') + '</b><br><span class="muted">' + (busy ? 'Обмен…' : UI.sheet && UI.sheet !== 'ok' ? esc(UI.sheet) : 'Последний обмен: ' + ago(SY.at)) + '</span></p>' +
       '<div class="row"><button type="button" class="btn ghost" data-act="sheet-now"' + (busy ? ' disabled' : '') + '>Обменяться сейчас</button>' +
       '<a class="btn ghost" href="' + esc(link) + '" target="_blank" rel="noopener">Открыть таблицу</a></div>' +
       (tokenValid() ? '<button type="button" class="link" data-act="logout">Выйти из Google</button>' : '') +
-      '<button type="button" class="link danger" data-act="disconnect">Отключить таблицу</button>';
+      '<button type="button" class="link danger" data-act="disconnect">Отключить таблицу</button>' + agentGuide();
     return h + '</section>';
   }
 
@@ -430,11 +467,19 @@
     var m = mealAt(date, s), has = m && m.text;
     return '<li class="meal' + (big ? ' big' : '') + (m && m.done ? ' done' : '') + (s === 'с собой' ? ' go' : '') + '">' +
       (has ? mealPic(m.text) : '<span class="fi fi-none" aria-hidden="true"></span>') +
-      '<button class="mtxt" data-act="meal-edit" data-date="' + date + '" data-slot="' + esc(s) + '"><span class="lbl">' + esc(SLOT_LABEL[s] || s) + '</span>' +
+      '<button class="mtxt" data-act="meal-edit" data-date="' + date + '" data-slot="' + esc(s) + '"><span class="lbl">' + esc(slotLabel(s)) + '</span>' +
       (has ? '<span class="dish">' + esc(m.text) + '</span>' : '<span class="muted">Добавить блюдо</span>') + '</button>' +
       '<button class="chk" data-act="meal-done" data-date="' + date + '" data-slot="' + esc(s) + '" aria-label="Съели" aria-pressed="' + !!(m && m.done) + '" ' + (m ? '' : 'disabled') + '>' + (m && m.done ? ICO.check : '') + '</button></li>';
   }
-  function slotsOf(date) { return M.SLOTS.filter(function (s) { return s !== 'с собой' || mealAt(date, s); }); }
+  /* приёмы дня: четыре основных всегда, свои («полдник») — если есть, «с собой» — последним, если есть */
+  function slotsOf(date) {
+    var own = mealsOf(date).map(function (m) { return m.slot; }).filter(function (s, i, a) { return s && M.SLOTS.indexOf(s) < 0 && a.indexOf(s) === i; }).sort();
+    return M.SLOTS.filter(function (s) { return s !== 'с собой'; }).concat(own, mealAt(date, 'с собой') ? ['с собой'] : []);
+  }
+  function slotLabel(s) { s = String(s || ''); return SLOT_LABEL[s] || s.charAt(0).toUpperCase() + s.slice(1); }
+  function normSlot(s) { return String(s || '').trim().replace(/\s+/g, ' ').toLowerCase().slice(0, 30); }
+  /* id нового блюда: «дата/приём», а если такой уже занят перенесённым блюдом — случайный */
+  function newMealId(date, slot) { var id = date + '/' + slot; return S.meals[id] ? uid('m') : id; }
   function viewToday() {
     var ds = dates(), t = today();
     if (!ds.length) return emptyState();
@@ -455,7 +500,7 @@
     }).join('') + '</ul></section>' : '';
     var tom = next ? '<section class="panel"><h3>Завтра, ' + WDL[parseD(next).getDay()] + '</h3><ul class="mini-plate">' + slotsOf(next).map(function (s) {
       var m = mealAt(next, s); return '<li>' + (m && m.text ? mealPic(m.text) : '<span class="fi fi-none" aria-hidden="true"></span>') +
-        '<span><span class="lbl">' + esc(SLOT_LABEL[s] || s) + '</span>' + (m && m.text ? esc(m.text) : '<span class="muted">не задано</span>') + '</span></li>';
+        '<span><span class="lbl">' + esc(slotLabel(s)) + '</span>' + (m && m.text ? esc(m.text) : '<span class="muted">не задано</span>') + '</span></li>';
     }).join('') + '</ul>' + (nd && nd.cook ? '<p class="cook-line">' + ICO.pot + '<span>' + esc(nd.cook) + '</span></p>' : '') +
       '<button class="btn ghost" data-act="tab" data-tab="menu">Вся неделя</button></section>' : '';
     return '<div class="today">' + '<div class="today-main">' + head + plate + '</div><div class="today-side">' + cook + allergyPanel() + home + tom + '</div></div>';
@@ -470,19 +515,29 @@
     var seg = '<div class="seg">' + ws.map(function (w, i) {
       return '<button class="' + (i === wi ? 'on' : '') + '" data-act="week" data-i="' + i + '">' + dm(w[0]) + '–' + dm(w[w.length - 1]) + '</button>';
     }).join('') + '</div>';
-    var cards = ws[wi].map(function (date) {
+    var cols = ws[wi].map(function (date) {
       var d = dayRec(date) || {}, tg = tags(d.tags), pd = parseD(date);
-      var rows = slotsOf(date).map(function (s) { return mealRow(date, s, false); }).join('');
-      var addGo = mealAt(date, 'с собой') ? '' : '<button class="link" data-act="meal-edit" data-date="' + date + '" data-slot="с собой">+ С собой</button>';
-      return '<article class="day' + (date === t ? ' today' : '') + (date < t ? ' past' : '') + '" id="d' + date + '">' +
+      var places = slotsOf(date).map(function (s) { return boardPlace(date, s); }).join('');
+      return '<section class="col' + (date === t ? ' today' : '') + (date < t ? ' past' : '') + '" id="d' + date + '" aria-label="' + WDL[pd.getDay()] + ', ' + pd.getDate() + ' ' + MON[pd.getMonth()] + '">' +
         '<header class="dh"><span class="dnum"><b>' + pd.getDate() + '</b><small>' + MON[pd.getMonth()].slice(0, 3) + '</small></span>' +
         '<span class="dname">' + WDL[pd.getDay()] + (date === t ? '<em>сегодня</em>' : '') + '</span></header>' +
         (tg.length ? '<div class="tags">' + tg.map(function (x) { return '<span class="tag t-' + x.k + '">' + esc(x.t) + '</span>'; }).join('') + '</div>' : '') +
-        '<ul class="meals">' + rows + '</ul>' + addGo +
+        '<ul class="places">' + places + '</ul>' +
+        '<button class="add-meal" data-act="meal-add" data-date="' + date + '">' + ICO.plus + 'Добавить</button>' +
         '<button class="cook" data-act="cook-edit" data-date="' + date + '">' + ICO.pot + '<span>' + (d.cook ? esc(d.cook) : '<span class="muted">План готовки не задан</span>') + '</span></button>' +
-        '</article>';
+        '</section>';
     }).join('');
-    return seg + '<div class="grid">' + cards + '</div>';
+    return seg + '<p class="hint">Карточки можно перетаскивать между днями и приёмами пищи, на телефоне — нажав и подержав. Занятое место меняется местами.</p>' +
+      '<div class="board" data-board>' + cols + '</div>';
+  }
+  /* место на доске: карточка блюда или пустое место «+ блюдо»; любое место принимает перетаскивание */
+  function boardPlace(date, s) {
+    var m = mealAt(date, s), at = ' data-date="' + date + '" data-slot="' + esc(s) + '"';
+    if (!m || !m.text) return '<li class="place" data-drop' + at + '><button class="slot-empty" data-act="meal-edit"' + at + '><span class="lbl">' + esc(slotLabel(s)) + '</span><span>+ блюдо</span></button></li>';
+    return '<li class="place" data-drop' + at + '><div class="card' + (m.done ? ' done' : '') + (s === 'с собой' ? ' go' : '') + '" data-drag data-id="' + esc(m.id) + '">' +
+      '<div class="ctop">' + mealPic(m.text) + '<span class="lbl" aria-hidden="true">' + esc(slotLabel(s)) + '</span>' +
+      '<button class="chk" data-act="meal-done"' + at + ' aria-label="Съели: ' + esc(slotLabel(s)) + '" aria-pressed="' + !!m.done + '">' + (m.done ? ICO.check : '') + '</button></div>' +
+      '<button class="mtxt" data-act="meal-edit"' + at + ' aria-label="' + esc(slotLabel(s) + ': ' + m.text) + '"><span class="dish">' + esc(m.text) + '</span></button></div></li>';
   }
 
   function viewShop() {
@@ -528,7 +583,10 @@
   function viewHome() {
     var all = M.list(S, 'pantry'), q = M.norm(UI.q), t = today();
     if (q) all = all.filter(function (p) { return M.norm(p.name).indexOf(q) >= 0; });
-    var out = '<input class="search" type="search" placeholder="Поиск по дому" aria-label="Поиск по дому" value="' + esc(UI.q) + '" data-input="q">';
+    var add = '<form class="add" data-form="pantry-add"><input name="name" placeholder="Что есть дома" aria-label="Продукт" required><input name="qty" placeholder="Сколько" aria-label="Сколько" class="sm">' +
+      '<select name="place" aria-label="Где">' + PLACES.map(function (p) { return '<option value="' + p[0] + '">' + p[1] + '</option>'; }).join('') + '</select>' +
+      '<input name="until" type="date" class="sm" title="Годен до" aria-label="Годен до"><button class="btn">Добавить</button></form>';
+    var out = add + '<input class="search" type="search" placeholder="Поиск по дому" aria-label="Поиск по дому" value="' + esc(UI.q) + '" data-input="q">';
     PLACES.forEach(function (pl) {
       var li = all.filter(function (p) { return placeKey(p.place) === pl[0]; }).sort(function (a, b) { return (a.until || '9') < (b.until || '9') ? -1 : 1; });
       out += '<h3 class="place">' + pl[2] + pl[1] + ' <span class="muted">' + li.length + '</span></h3>';
@@ -541,9 +599,6 @@
           (soon ? '<span class="badge warn">' + (p.until < t ? 'просрочено' : 'скоро') + '</span>' : '') + '</li>';
       }).join('') + '</ul>' : '<p class="muted pad">Пусто</p>';
     });
-    out += '<h3>Добавить</h3><form class="add" data-form="pantry-add"><input name="name" placeholder="Что есть дома" aria-label="Продукт" required><input name="qty" placeholder="Сколько" aria-label="Сколько" class="sm">' +
-      '<select name="place" aria-label="Где">' + PLACES.map(function (p) { return '<option value="' + p[0] + '">' + p[1] + '</option>'; }).join('') + '</select>' +
-      '<input name="until" type="date" class="sm" title="Годен до" aria-label="Годен до"><button class="btn">Добавить</button></form>';
     return out;
   }
   function addDays(s, n) { var d = parseD(s); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
@@ -581,7 +636,7 @@
   var TABS = [['today', 'Сегодня'], ['menu', 'Неделя'], ['shop', 'Покупки'], ['home', 'Дома'], ['recipes', 'Рецепты'], ['more', 'Ещё']];
   var pendingRender = false;
   function render(force) {
-    if (!force && document.querySelector('#modal .sheet')) { pendingRender = true; return; }
+    if (!force && (document.querySelector('#modal .sheet') || (DRAG && DRAG.on))) { pendingRender = true; return; }
     pendingRender = false;
     var v = { today: viewToday, menu: viewMenu, shop: viewShop, home: viewHome, recipes: viewRecipes, more: viewMore }[UI.tab]();
     var nav = TABS.map(function (t) {
@@ -589,7 +644,8 @@
       return '<button class="' + (UI.tab === t[0] ? 'on' : '') + '" data-act="tab" data-tab="' + t[0] + '"' + (UI.tab === t[0] ? ' aria-current="page"' : '') + '>' +
         ICO[t[0]] + '<span>' + t[1] + '</span>' + (n ? '<i>' + n + '</i>' : '') + '</button>';
     }).join('');
-    var y = window.scrollY, same = $app.getAttribute('data-tab') === UI.tab, now = new Date();
+    var y = window.scrollY, same = $app.getAttribute('data-tab') === UI.tab, now = new Date(), ob = $app.querySelector('[data-board]');
+    UI.boardX = ob ? ob.scrollLeft : null;
     $app.setAttribute('data-tab', UI.tab);
     var title = (S.meta.title && S.meta.title.value) || 'Меню', heads = { today: 'Сегодня', menu: 'Меню на неделю', shop: 'Покупки', home: 'Дома', recipes: 'Рецепты', more: 'Ещё' };
     $app.innerHTML = '<nav class="tabs" aria-label="Разделы"><div class="brand"><b>Меню</b><span>' + esc(title.replace(/^Меню\s*[—-]\s*/, '')) + '</span></div>' + nav + '</nav>' +
@@ -597,6 +653,8 @@
       '<p>' + WDL[now.getDay()] + ', ' + now.getDate() + ' ' + MON[now.getMonth()] + '</p></div>' + syncChip() + '</header>' +
       '<main>' + v + '</main></div><div id="modal"></div>';
     if (same) window.scrollTo(0, y);
+    var bd = UI.tab === 'menu' && $app.querySelector('[data-board]');
+    if (bd) { if (same && UI.boardX != null) bd.scrollLeft = UI.boardX; else { var tc = bd.querySelector('.col.today'); bd.scrollLeft = tc ? tc.offsetLeft - bd.offsetLeft - 16 : 0; } }
   }
 
   /* ---------- модальные окна ---------- */
@@ -604,13 +662,16 @@
   function closeModal() { var m = document.getElementById('modal'); if (m) m.innerHTML = ''; if (pendingRender) render(); }
 
   function mealEditor(date, slot) {
-    var m = mealAt(date, slot), others = dates().filter(function (d) { return d !== date; });
+    var m = mealAt(date, slot), all = dates(), slots = M.SLOTS.slice();
+    all.forEach(function (d) { slotsOf(d).forEach(function (s) { if (slots.indexOf(s) < 0) slots.push(s); }); });
     var rec = M.list(S, 'recipes').map(function (r) { return '<button type="button" class="chip" data-act="pick" data-v="' + esc(r.name) + '">' + esc(r.name) + '</button>'; }).join('');
-    modal('<form data-form="meal" data-date="' + date + '" data-slot="' + esc(slot) + '"><h3>' + esc(SLOT_LABEL[slot] || slot) + ', ' + wd(date).toLowerCase() + ' ' + dm(date) + '</h3>' +
+    modal('<form data-form="meal" data-date="' + date + '" data-slot="' + esc(slot) + '"><h3>' + esc(slotLabel(slot)) + ', ' + wd(date).toLowerCase() + ' ' + dm(date) + '</h3>' +
       '<textarea name="text" rows="4" placeholder="Что едим">' + esc(m ? m.text : '') + '</textarea>' +
       (rec ? '<div class="chips">' + rec + '</div>' : '') +
       '<label class="ck"><input type="checkbox" name="done"' + (m && m.done ? ' checked' : '') + '> Уже съели</label>' +
-      '<label>Поменять местами с днём <select name="swap"><option value="">—</option>' + others.map(function (d) { return '<option value="' + d + '">' + dm(d) + ' ' + wd(d) + '</option>'; }).join('') + '</select></label>' +
+      (m ? '<fieldset class="move"><legend>Перенести (занятое место поменяется местами)</legend>' +
+        '<select name="to_date" aria-label="День">' + all.map(function (d) { return '<option value="' + d + '"' + (d === date ? ' selected' : '') + '>' + dm(d) + ' ' + wd(d) + '</option>'; }).join('') + '</select>' +
+        '<select name="to_slot" aria-label="Приём пищи">' + slots.map(function (s) { return '<option value="' + esc(s) + '"' + (s === slot ? ' selected' : '') + '>' + esc(slotLabel(s)) + '</option>'; }).join('') + '</select></fieldset>' : '') +
       '<div class="row"><button class="btn">Сохранить</button><button type="button" class="btn ghost" data-act="close">Отмена</button>' +
       (m ? '<button type="button" class="link danger" data-act="meal-del" data-date="' + date + '" data-slot="' + esc(slot) + '">Убрать</button>' : '') + '</div></form>');
   }
@@ -665,7 +726,28 @@
       '<textarea name="cook" rows="3">' + esc(d.cook || '') + '</textarea>' +
       '<div class="row"><button class="btn">Сохранить</button><button type="button" class="btn ghost" data-act="close">Отмена</button></div></form>');
   }
-  function mealId(date, slot) { var m = mealAt(date, slot); return m ? m.id : date + '/' + slot; }
+  /* перенести блюдо id на место (date, slot); если место занято — блюдо оттуда встаёт на прежнее место переносимого */
+  function moveMeal(c, id, date, slot) {
+    var m = S.meals[id]; if (!m || (m.date === date && m.slot === slot)) return false;
+    var t = mealAt(date, slot), from = { date: m.date, slot: m.slot };
+    c.put('meals', id, { date: date, slot: slot });
+    if (t && t.id !== id) c.put('meals', t.id, from);
+    if (!dayRec(date)) c.put('days', 'd' + date, { date: date, wd: wd(date) });
+    return true;
+  }
+  /* «+ Добавить» в колонке дня: свой приём пищи или свободный из основных */
+  function mealAdd(date) {
+    var free = M.SLOTS.filter(function (s) { var m = mealAt(date, s); return !(m && m.text); });
+    var rec = M.list(S, 'recipes').map(function (r) { return '<button type="button" class="chip" data-act="pick" data-v="' + esc(r.name) + '">' + esc(r.name) + '</button>'; }).join('');
+    modal('<form data-form="meal-add" data-date="' + date + '" novalidate><h3>Новое блюдо, ' + wd(date).toLowerCase() + ' ' + dm(date) + '</h3>' +
+      '<label>Приём пищи<input name="slot" value="' + esc(free[0] || '') + '" placeholder="Например, полдник" autocomplete="off"></label>' +
+      '<div class="chips">' + free.concat(['полдник', 'второй завтрак']).filter(function (s, i, a) { return a.indexOf(s) === i && !(mealAt(date, s) && mealAt(date, s).text); })
+        .map(function (s) { return '<button type="button" class="chip" data-act="pick-slot" data-v="' + esc(s) + '">' + esc(slotLabel(s)) + '</button>'; }).join('') + '</div>' +
+      '<label>Что едим<textarea name="text" rows="3" placeholder="Блюдо"></textarea></label>' +
+      (rec ? '<div class="chips">' + rec + '</div>' : '') +
+      '<p class="err" role="alert" hidden></p>' +
+      '<div class="row"><button class="btn">Добавить</button><button type="button" class="btn ghost" data-act="close">Отмена</button></div></form>');
+  }
 
   function picError(e) {
     var m = e && e.message === 'format' ? 'Этот формат картинки не открывается' + (e.file ? ' (' + e.file + ')' : '') + '. Подойдут JPEG, PNG или WebP.'
@@ -686,6 +768,8 @@
       case 'shopweek': UI.shopWeek = +b.getAttribute('data-w'); render(); break;
       case 'close': closeModal(); break;
       case 'meal-edit': mealEditor(date, slot); break;
+      case 'meal-add': mealAdd(date); break;
+      case 'pick-slot': { var si = document.querySelector('#modal [name="slot"]'), se = document.querySelector('#modal .err'); if (si) { si.value = b.getAttribute('data-v'); si.focus(); } if (se) se.hidden = true; break; }
       case 'meal-done': { var m = mealAt(date, slot); if (m) commit(function (c) { c.put('meals', m.id, { done: !m.done }); }); break; }
       case 'meal-del': { var m2 = mealAt(date, slot); closeModal(); if (m2) commit(function (c) { c.del('meals', m2.id); }); break; }
       case 'pick': { var ta = document.querySelector('#modal textarea'); if (ta) ta.value = b.getAttribute('data-v'); break; }
@@ -731,20 +815,94 @@
   /* Второе нажатие подтверждает удаление — без системного диалога. */
   function confirmSoft(b, label) { if (b.getAttribute('data-sure')) return true; b.setAttribute('data-sure', '1'); b.textContent = 'Точно?'; setTimeout(function () { if (b.isConnected) { b.removeAttribute('data-sure'); b.textContent = label || 'Закончилось'; } }, 3000); return false; }
 
+  /* ---------- доска недели: перетаскивание карточек блюд ----------
+     Мышь — после сдвига на 8 px, палец — после удержания 350 мс (иначе это прокрутка). Под пальцем ищется место [data-drop];
+     у краёв доска и страница прокручиваются сами. Перенос — moveMeal с обменом; без мыши то же делает «Перенести» в окне блюда. */
+  var DRAG = null, dragged = 0;
+  document.addEventListener('pointerdown', function (e) {
+    var card = e.target.closest('[data-drag]');
+    if (!card || e.button > 0 || e.target.closest('.chk')) return;
+    DRAG = { card: card, id: card.getAttribute('data-id'), x: e.clientX, y: e.clientY, pid: e.pointerId, touch: e.pointerType !== 'mouse', on: false };
+    if (DRAG.touch) DRAG.timer = setTimeout(function () { if (DRAG && !DRAG.on) dragStart(); }, 350);
+  });
+  document.addEventListener('pointermove', function (e) {
+    if (!DRAG || e.pointerId !== DRAG.pid) return;
+    var dx = e.clientX - DRAG.x, dy = e.clientY - DRAG.y;
+    if (!DRAG.on) { if (dx * dx + dy * dy < 64) return; if (DRAG.touch) { dragEnd(false); return; } dragStart(); }
+    dragMove(e.clientX, e.clientY);
+  });
+  document.addEventListener('pointerup', function (e) { if (DRAG && e.pointerId === DRAG.pid) dragEnd(true); });
+  document.addEventListener('pointercancel', function () { if (DRAG) dragEnd(false); });
+  document.addEventListener('touchmove', function (e) { if (DRAG && DRAG.on) e.preventDefault(); }, { passive: false });
+  document.addEventListener('contextmenu', function (e) { if (DRAG) e.preventDefault(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && DRAG && DRAG.on) { DRAG.over = null; dragEnd(false); } });
+  /* после переноса отпускание кнопки не должно открыть окно блюда */
+  document.addEventListener('click', function (e) { if (Date.now() - dragged < 60) { e.stopPropagation(); e.preventDefault(); } }, true);
+  function dragStart() {
+    var r = DRAG.card.getBoundingClientRect(), g = DRAG.card.cloneNode(true);
+    DRAG.on = true; DRAG.dx = DRAG.x - r.left; DRAG.dy = DRAG.y - r.top;
+    g.classList.add('drag-ghost'); g.setAttribute('aria-hidden', 'true'); g.style.width = r.width + 'px';
+    document.body.appendChild(g); DRAG.ghost = g;
+    DRAG.card.classList.add('lifted'); document.documentElement.classList.add('dragging');
+    if (navigator.vibrate) navigator.vibrate(12);
+    DRAG.tick = setInterval(edgeScroll, 16);
+    dragMove(DRAG.x, DRAG.y);
+  }
+  function dragMove(x, y) {
+    DRAG.lx = x; DRAG.ly = y;
+    DRAG.ghost.style.transform = 'translate(' + (x - DRAG.dx) + 'px,' + (y - DRAG.dy) + 'px) rotate(-2deg)';
+    var el = document.elementFromPoint(x, y), t = el && el.closest('[data-drop]');
+    if (t !== DRAG.over) { if (DRAG.over) DRAG.over.classList.remove('over'); DRAG.over = t; if (t) t.classList.add('over'); }
+  }
+  function edgeScroll() {
+    if (!DRAG || !DRAG.on) return;
+    var bd = document.querySelector('[data-board]'), x = DRAG.lx, y = DRAG.ly, e = 48, sp = 14, moved = false;
+    if (bd) {
+      var r = bd.getBoundingClientRect();
+      if (x < r.left + e && bd.scrollLeft > 0) { bd.scrollLeft -= sp; moved = true; }
+      else if (x > r.right - e && bd.scrollLeft < bd.scrollWidth - bd.clientWidth) { bd.scrollLeft += sp; moved = true; }
+    }
+    if (y < e) { window.scrollBy(0, -sp); moved = true; } else if (y > window.innerHeight - e) { window.scrollBy(0, sp); moved = true; }
+    if (moved) dragMove(x, y);
+  }
+  function dragEnd(drop) {
+    var d = DRAG; DRAG = null; clearTimeout(d.timer);
+    if (!d.on) return;
+    clearInterval(d.tick); d.ghost.remove(); d.card.classList.remove('lifted'); document.documentElement.classList.remove('dragging');
+    if (d.over) d.over.classList.remove('over');
+    dragged = Date.now();
+    var to = drop && d.over;
+    if (to) commit(function (c) { moveMeal(c, d.id, to.getAttribute('data-date'), to.getAttribute('data-slot')); });
+    else if (pendingRender) render();
+  }
+
   document.addEventListener('submit', function (e) {
     var f = e.target.closest('[data-form]'); if (!f) return; e.preventDefault();
     var k = f.getAttribute('data-form'), fd = new FormData(f), g = function (n) { var v = fd.get(n); return v == null ? '' : String(v).trim(); };
     switch (k) {
       case 'meal': {
-        var date = f.getAttribute('data-date'), slot = f.getAttribute('data-slot'), swap = g('swap'), text = g('text'), done = !!fd.get('done');
+        var date = f.getAttribute('data-date'), slot = f.getAttribute('data-slot'), text = g('text'), done = !!fd.get('done');
+        var toDate = g('to_date') || date, toSlot = normSlot(g('to_slot')) || slot;
         closeModal();
         commit(function (c) {
-          if (swap) {
-            var other = mealAt(swap, slot), ot = other ? other.text : '';
-            c.put('meals', mealId(swap, slot), { date: swap, slot: slot, text: text, done: false });
-            if (ot || mealAt(date, slot)) c.put('meals', mealId(date, slot), { date: date, slot: slot, text: ot, done: false });
-          } else if (text || mealAt(date, slot)) c.put('meals', mealId(date, slot), { date: date, slot: slot, text: text, done: done });
+          var m = mealAt(date, slot);
+          if (!text && !m) return;
+          var id = m ? m.id : newMealId(date, slot);
+          c.put('meals', id, { date: date, slot: slot, text: text, done: done });
+          if (toDate !== date || toSlot !== slot) moveMeal(c, id, toDate, toSlot);
           if (!dayRec(date)) c.put('days', 'd' + date, { date: date, wd: wd(date) });
+        });
+        break;
+      }
+      case 'meal-add': {
+        var ad = f.getAttribute('data-date'), as = normSlot(g('slot')), at = g('text'), er = f.querySelector('.err');
+        var bad = !as ? 'Назовите приём пищи' : mealAt(ad, as) && mealAt(ad, as).text ? '«' + slotLabel(as) + '» в этот день уже есть — выберите другой приём или назовите по-своему' : !at ? 'Напишите, что едим' : '';
+        if (bad) { er.textContent = bad; er.hidden = false; break; }
+        closeModal();
+        commit(function (c) {
+          var ex = mealAt(ad, as);
+          c.put('meals', ex ? ex.id : newMealId(ad, as), { date: ad, slot: as, text: at, done: false });
+          if (!dayRec(ad)) c.put('days', 'd' + ad, { date: ad, wd: wd(ad) });
         });
         break;
       }
@@ -802,7 +960,8 @@
     }
   });
   document.addEventListener('input', function (e) {
-    var t = e.target;
+    var t = e.target, er = t.form && t.form.querySelector('.err');
+    if (er) er.hidden = true;
     if (t.getAttribute('data-input') === 'q') { UI.q = t.value; var pos = t.selectionStart; render(); var n = document.querySelector('[data-input="q"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (x) { } } }
   });
   document.addEventListener('change', function (e) {

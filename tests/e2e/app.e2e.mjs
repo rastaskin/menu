@@ -31,7 +31,7 @@ async function readQr(p) {
   const r = jsQR(Uint8ClampedArray.from(px.d), px.w, px.h);
   return r && r.data;
 }
-const synced = (p) => p.waitForFunction(() => !window.__menu.SY.dirty && /Синхр/.test(document.querySelector('[data-sync]').textContent));
+const synced = (p) => p.waitForFunction(() => !window.__menu.SY.dirty && /Синхр/.test((document.querySelector('[data-sync]') || {}).textContent));
 
 test('приложение: таблица по кнопке, семья через релей, правки, офлайн, второе устройство', async () => {
   const srv = await serve(0), base = 'http://127.0.0.1:' + srv.address().port + '/';
