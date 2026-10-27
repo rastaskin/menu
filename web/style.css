@@ -242,6 +242,19 @@ html.dragging, html.dragging * { cursor: grabbing !important; }
 .rc:active { transform: translateY(1px); }
 .rc b { display: block; font-size: var(--text-lg); line-height: 1.25; }
 .rc p { margin-top: var(--space-2xs); font-size: var(--text-sm); color: var(--color-muted); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.rc .have { display: inline-flex; align-items: center; gap: var(--space-2xs); margin-top: var(--space-2xs); font-size: var(--text-xs); line-height: 1.4; background: var(--color-paper-2); color: var(--color-ink-2); border-radius: var(--radius-input); padding: var(--space-2xs) var(--space-xs); }
+.rc .have.all { background: var(--tag-z-bg); color: var(--tag-z-ink); font-weight: 700; }
+.rc .have svg { width: 12px; height: 12px; stroke-width: 3; }
+.stock { margin: var(--space-sm) 0; }
+.stock h4 { margin: 0 0 var(--space-xs); font-size: var(--text-sm); color: var(--color-muted); }
+.stock ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2xs); max-height: 40vh; overflow-y: auto; }
+.stock li { display: flex; align-items: flex-start; gap: var(--space-xs); font-size: var(--text-sm); }
+.stock li svg, .stock li i { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.stock li svg { color: var(--tag-z-ink); stroke-width: 3; }
+.stock li i { border: 1.5px solid var(--color-edge); border-radius: 50%; }
+.stock li span { min-width: 0; overflow-wrap: anywhere; }
+.stock li small { display: block; font-size: var(--text-xs); color: var(--color-muted); }
+.stock li.off > span { color: var(--color-ink-2); }
 .box { background: var(--color-card); color: var(--color-ink); border-radius: var(--radius-card); padding: var(--space-lg); margin: 0 0 var(--space-md); box-shadow: var(--shadow-card); max-width: 760px; }
 .box h3 { margin-top: 0; }
 .box p + p { margin-top: var(--space-xs); }

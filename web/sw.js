@@ -1,5 +1,5 @@
 /* Офлайн-кэш оболочки. Запросы к Google и к релею не кэшируются. При изменении файлов — поднять VERSION. */
-var VERSION = 'menu-v14';
+var VERSION = 'menu-v15';
 var SHELL = ['./', 'index.html', 'style.css', 'config.js', 'model.js', 'sheets.js', 'app.js', 'manifest.webmanifest', 'foodicons.js', 'vault.js', 'bip39-en.js', 'family.js', 'relay.js', 'qr.js', 'icons/food.webp', 'theme-init.js', 'tokens.css', 'base.css', 'fonts/nunito-cyrillic.woff2', 'fonts/nunito-latin.woff2',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 

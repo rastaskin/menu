@@ -606,8 +606,20 @@
   function viewRecipes() {
     var li = M.list(S, 'recipes').sort(function (a, b) { return (a.name || '') < (b.name || '') ? -1 : 1; });
     return '<button class="btn wide" data-act="recipe-new">' + ICO.plus + 'Новый рецепт</button><div class="cards">' + li.map(function (r) {
-      return '<button class="rc" data-act="recipe-edit" data-id="' + esc(r.id) + '">' + pic('r', r.name, r.name, 'fi-m') + '<span><b>' + esc(r.name) + '</b><p>' + esc(r.text || '') + '</p></span></button>';
+      var st = M.recipeStock(S, r.text, today()), n = st.filter(function (g) { return g.home.length; }).length, have = '';
+      if (st.length) have = '<span class="have' + (n === st.length ? ' all' : '') + '">' + (n === st.length ? ICO.check + 'Всё есть дома' : 'Дома ' + n + ' из ' + st.length) + '</span>';
+      return '<button class="rc" data-act="recipe-edit" data-id="' + esc(r.id) + '">' + pic('r', r.name, r.name, 'fi-m') + '<span><b>' + esc(r.name) + '</b>' + have + '<p>' + esc(r.text || '') + '</p></span></button>';
     }).join('') + '</div>';
+  }
+  /* Список продуктов рецепта с отметкой «есть дома» — в карточке рецепта. */
+  function recipeStockHtml(text) {
+    var st = M.recipeStock(S, text, today());
+    if (!st.length) return '';
+    var n = st.filter(function (g) { return g.home.length; }).length;
+    return '<section class="stock"><h4>Продукты: дома ' + n + ' из ' + st.length + '</h4><ul>' + st.map(function (g) {
+      return '<li class="' + (g.home.length ? 'on' : 'off') + '">' + (g.home.length ? ICO.check : '<i aria-hidden="true"></i>') + '<span>' + esc(g.name) +
+        (g.home.length ? '<small>' + esc(g.home.map(function (p) { return p.name + (p.qty ? ' ' + p.qty : ''); }).join(', ')) + '</small>' : '<small>нет дома</small>') + '</span></li>';
+    }).join('') + '</ul></section>';
   }
 
   function viewMore() {
@@ -715,7 +727,7 @@
   function recipeEditor(id) {
     var r = id ? S.recipes[id] : null;
     modal('<form data-form="recipe" data-id="' + esc(id || '') + '"><h3>' + (r ? 'Рецепт' : 'Новый рецепт') + '</h3>' + (r && r.name ? picEditor('r', r.name) : '') +
-      '<label>Название<input name="name" value="' + esc(r ? r.name : '') + '" required></label>' +
+      '<label>Название<input name="name" value="' + esc(r ? r.name : '') + '" required></label>' + (r ? recipeStockHtml(r.text) : '') +
       '<label>Как готовить<textarea name="text" rows="6">' + esc(r ? r.text || '' : '') + '</textarea></label>' +
       '<div class="row"><button class="btn">Сохранить</button><button type="button" class="btn ghost" data-act="close">Отмена</button>' +
       (r ? '<button type="button" class="link danger" data-act="recipe-del" data-id="' + esc(id) + '">Удалить</button>' : '') + '</div></form>');

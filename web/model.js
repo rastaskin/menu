@@ -158,10 +158,52 @@
     return list(S, 'pantry').filter(function (p) { return norm(p.name).split(' ').some(function (w) { return w.indexOf(stem) === 0; }); });
   }
 
+  /* Продукты рецепта: строки «— название — сколько» между «Продукты» и «Как готовить».
+     В строке может быть несколько продуктов через запятую, варианты — через «или». */
+  var STAPLE = /^(вода|кипят|соль|лавров|лед)/, NOFOOD = /(фольг|пергамент|рукав|коврик|противен|пленк|полотенц)/, STOP = { 'для': 1, 'или': 1, 'без': 1, 'под': 1 };
+  function ingredients(text) {
+    var out = [], on = false;
+    String(text || '').split('\n').forEach(function (ln) {
+      var t = ln.trim();
+      if (/^продукты/i.test(t)) { on = true; return; }
+      if (/^как готовить/i.test(t)) { on = false; return; }
+      if (!on || !/^[—–-]\s/.test(t)) return;
+      t.replace(/^[—–-]\s+/, '').split(/,\s*(?=[^,—]+\s—\s)/).forEach(function (seg) {
+        var name = seg.split(' — ')[0].replace(/\([^)]*\)?/g, ' ').trim(), n = norm(name);
+        if (!n || STAPLE.test(n) || NOFOOD.test(n)) return;
+        out.push({ name: name, alts: name.split(/\s+или\s+/).map(function (a) { return a.trim(); }).filter(Boolean) });
+      });
+    });
+    return out;
+  }
+  function words(s) { return norm(s).split(' ').filter(function (w) { return w.length > 2 && !STOP[w] && !/^\d/.test(w); }); }
+  function stem(w) { return w.length > 5 ? w.slice(0, -2) : w.length > 3 ? w.slice(0, -1) : w; }
+  /* Что из дома подходит к продукту рецепта: все значимые слова (до двух) есть в названии;
+     одно слово — должно быть первым словом продукта дома; просроченное не считается. */
+  function pantryFor(S, name, day) {
+    var iw = words(name).slice(0, 2);
+    if (!iw.length) return [];
+    return list(S, 'pantry').filter(function (p) {
+      if (day && p.until && p.until < day) return false;
+      var pw = words(p.name), hit = function (w) { return pw.some(function (x) { return x.indexOf(stem(w)) === 0; }); };
+      if (!pw.length) return false;
+      if (iw.length === 1) return pw[0].indexOf(stem(iw[0])) === 0;
+      return iw.every(hit) || (pw.length === 1 && iw.some(hit));
+    });
+  }
+  /* Наличие продуктов рецепта: [{ name, home: [записи «Дома»] }]. */
+  function recipeStock(S, text, day) {
+    return ingredients(text).map(function (g) {
+      var home = [];
+      g.alts.forEach(function (a) { pantryFor(S, a, day).forEach(function (p) { if (home.indexOf(p) < 0) home.push(p); }); });
+      return { name: g.name, home: home };
+    });
+  }
+
   var api = {
     COLS: COLS, NAMES: NAMES, SLOTS: SLOTS, TOMB_TTL: TOMB_TTL, blank: blank, normalize: normalize, clean: clean, cast: cast,
     put: put, del: del, merge: merge, equal: equal, clone: clone, list: list, stable: stable,
-    norm: norm, productKey: productKey, pantryMatches: pantryMatches, okId: okId
+    norm: norm, productKey: productKey, pantryMatches: pantryMatches, ingredients: ingredients, recipeStock: recipeStock, okId: okId
   };
   if (typeof module === 'object' && module.exports) module.exports = api; else root.MModel = api;
 })(typeof self !== 'undefined' ? self : this);
