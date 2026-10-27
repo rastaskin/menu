@@ -494,13 +494,10 @@
         var home = M.pantryMatches(S, i), badge = '';
         if (home.length && !i.bought) badge = '<span class="badge">дома: ' + home.map(function (p) { return esc(p.name + (p.qty ? ' ' + p.qty : '')); }).join(', ') + '</span>';
         return '<li class="tile' + (i.bought ? ' bought' : '') + (i.skip ? ' skip' : '') + '">' +
-          '<button class="tbtn" data-act="buy" data-id="' + esc(i.id) + '" aria-pressed="' + !!i.bought + '" aria-label="' + esc(i.name) + (i.bought ? ': куплено' : ': отметить купленным') + '">' +
+          '<button class="tbtn" data-act="shop-card" data-id="' + esc(i.id) + '" aria-haspopup="dialog" aria-label="' + esc(i.name) + (i.bought ? ', куплено' : i.skip ? ', есть дома' : '') + '">' +
           pic('p', i.name, i.name, 'fi-l') + '<span class="nm">' + esc(i.name) + '</span><span class="sub">' + esc(i.qty || '') + '</span>' + (i.skip ? '<span class="sub">есть дома</span>' : '') +
           (i.bought ? '<span class="tick">' + ICO.check + '</span>' : '') + '</button>' +
-          '<button class="tedit" data-act="shop-edit" data-id="' + esc(i.id) + '" aria-label="Изменить">' + ICO.dots + '</button>' +
-          (badge || home.length || i.skip || i.price ? '<div class="tfoot">' + badge +
-            (home.length || i.skip ? '<button class="mini" data-act="skip" data-id="' + esc(i.id) + '">' + (i.skip ? 'Купить' : 'Есть дома') + '</button>' : '') +
-            (i.price ? '<span class="pr">' + rub(i.price) + '</span>' : '') + '</div>' : '') + '</li>';
+          (badge || i.price ? '<div class="tfoot">' + badge + (i.price ? '<span class="pr">' + rub(i.price) + '</span>' : '') + '</div>' : '') + '</li>';
       }).join('') + '</ul>';
     }).join('');
     var pct = plan ? Math.round(got * 100 / plan) : 0;
@@ -607,6 +604,21 @@
       '<div class="row"><button class="btn">Сохранить</button><button type="button" class="btn ghost" data-act="close">Отмена</button>' +
       (m ? '<button type="button" class="link danger" data-act="meal-del" data-date="' + date + '" data-slot="' + esc(slot) + '">Убрать</button>' : '') + '</div></form>');
   }
+  /* карточка продукта из «Покупок»: картинка, что известно, и крупные кнопки действий */
+  function shopCard(id) {
+    var i = S.shop[id]; if (!i) return;
+    var home = M.pantryMatches(S, i), facts = [i.qty, i.price ? rub(i.price) : '', i.cat].filter(Boolean), d = ' data-id="' + esc(id) + '"';
+    modal('<div class="pcard">' + pic('p', i.name, i.name, 'fi-xl') + '<h3>' + esc(i.name) + '</h3>' +
+      (facts.length ? '<p class="muted">' + facts.map(esc).join(' · ') + '</p>' : '') +
+      (home.length ? '<p><span class="badge">дома: ' + home.map(function (p) { return esc(p.name + (p.qty ? ' ' + p.qty : '')); }).join(', ') + '</span></p>' : '') +
+      (i.bought ? '<p class="state">' + ICO.check + 'Куплено</p>' : i.skip ? '<p class="state">Есть дома — покупать не нужно</p>' : '') +
+      '<div class="acts">' +
+      '<button type="button" class="btn"' + d + ' data-act="buy">' + (i.bought ? 'Не куплено' : ICO.check + 'Куплено') + '</button>' +
+      '<button type="button" class="btn ghost"' + d + ' data-act="skip">' + (i.skip ? 'Нужно купить' : 'Есть дома') + '</button>' +
+      '<button type="button" class="btn ghost"' + d + ' data-act="shop-edit">Изменить</button>' +
+      '<button type="button" class="btn ghost danger"' + d + ' data-act="shop-del">Удалить</button>' +
+      '</div><button type="button" class="link" data-act="close">Закрыть</button></div>');
+  }
   function shopEditor(id) {
     var i = S.shop[id]; if (!i) return;
     modal('<form data-form="shop" data-id="' + esc(id) + '"><h3>Покупка</h3>' + picEditor('p', i.name) +
@@ -668,10 +680,11 @@
       case 'meal-del': { var m2 = mealAt(date, slot); closeModal(); if (m2) commit(function (c) { c.del('meals', m2.id); }); break; }
       case 'pick': { var ta = document.querySelector('#modal textarea'); if (ta) ta.value = b.getAttribute('data-v'); break; }
       case 'cook-edit': cookEditor(date); break;
-      case 'buy': { var i = S.shop[id]; if (i) commit(function (c) { c.put('shop', id, { bought: !i.bought }); }); break; }
-      case 'skip': { var i2 = S.shop[id]; if (i2) commit(function (c) { c.put('shop', id, { skip: !i2.skip }); }); break; }
+      case 'shop-card': shopCard(id); break;
+      case 'buy': { var i = S.shop[id]; closeModal(); if (i) commit(function (c) { c.put('shop', id, { bought: !i.bought, skip: false }); }); break; }
+      case 'skip': { var i2 = S.shop[id]; closeModal(); if (i2) commit(function (c) { c.put('shop', id, { skip: !i2.skip, bought: false }); }); break; }
       case 'shop-edit': shopEditor(id); break;
-      case 'shop-del': closeModal(); commit(function (c) { c.del('shop', id); }); break;
+      case 'shop-del': if (confirmSoft(b, 'Удалить')) { closeModal(); commit(function (c) { c.del('shop', id); }); } break;
       case 'move-home': commit(function (c) {
         M.list(S, 'shop').filter(function (i) { return (i.week || 0) === UI.shopWeek && i.bought && !i.moved; }).forEach(function (i) {
           c.put('pantry', 'p-' + i.id, { name: i.name, qty: i.qty || '', place: placeFor(i) });

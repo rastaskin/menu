@@ -60,6 +60,7 @@ main { padding-top: var(--space-2xs); }
 .fi { flex: none; width: 44px; height: 44px; background: url(icons/food.webp) no-repeat; background-size: 800% 800%; filter: drop-shadow(1px 2px 1.5px var(--color-rule)); }
 .fi-m { width: 56px; height: 56px; }
 .fi-l { width: 64px; height: 64px; }
+.fi-xl { width: 112px; height: 112px; }
 .fi-none { background: var(--color-paper-3); border-radius: var(--radius-input); filter: none; }
 .fi-img { object-fit: cover; border-radius: var(--radius-input); background: var(--color-paper-3); }
 
@@ -184,9 +185,6 @@ main { padding-top: var(--space-2xs); }
 .badge { display: inline-block; font-size: var(--text-xs); line-height: 1.4; background: var(--tag-z-bg); color: var(--tag-z-ink); border-radius: var(--radius-input); padding: var(--space-2xs) var(--space-xs); }
 .badge.warn { position: absolute; top: var(--space-xs); left: var(--space-xs); background: var(--color-warn-bg); color: var(--color-warn); font-weight: 700; }
 .soon { box-shadow: 0 0 0 2px var(--color-accent-3), var(--shadow-card); }
-.mini { min-height: 32px; border: 1px solid var(--color-edge); background: var(--color-card); border-radius: var(--radius-pill); padding: 0 var(--space-sm); font-size: var(--text-xs); font-weight: 700; white-space: nowrap; }
-.mini:hover { border-color: var(--color-ink); }
-.mini:active { transform: translateY(1px); }
 
 /* ---------- кнопки из картона и поля ---------- */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-xs); min-height: 44px; border: 0; border-radius: var(--radius-stock); padding: 0 var(--space-md); font-weight: 700; font-size: var(--text-md); text-decoration: none; background-color: var(--color-accent); background-image: var(--grain); color: var(--color-accent-ink); box-shadow: 0 var(--edge-rest) 0 var(--color-accent-deep); margin-bottom: var(--edge-rest); transition: transform var(--dur-micro) var(--ease-snap), box-shadow var(--dur-micro) var(--ease-snap); }
@@ -219,7 +217,7 @@ main { padding-top: var(--space-2xs); }
 .box p + p { margin-top: var(--space-xs); }
 .copy { display: flex; gap: var(--space-xs); margin-top: var(--space-xs); } .copy input { flex: 1; }
 .qrbox { display: flex; justify-content: center; margin: var(--space-md) 0; }
-.qr { width: min(240px, 70vw); height: auto; border-radius: var(--radius-input); }
+.qr { width: min(240px, 70vw); height: auto; border-radius: var(--radius-input); stroke: none; } /* общее правило svg рисует обводку иконок — модулям QR она не нужна */
 .qr-bg { fill: var(--color-qr-bg); } .qr-fg { fill: var(--color-qr-fg); }
 .words { font-family: ui-monospace, Consolas, monospace; background: var(--color-paper-2); border-radius: var(--radius-input); padding: var(--space-sm); margin-top: var(--space-xs); word-spacing: 0.3em; user-select: all; }
 .empty { background: var(--color-card); border-radius: var(--radius-card); padding: var(--space-xl); margin-top: var(--space-sm); box-shadow: var(--shadow-card); max-width: 640px; }
@@ -243,6 +241,17 @@ main { padding-top: var(--space-2xs); }
 .chip { min-height: 32px; border: 1px solid var(--color-edge); background: var(--color-paper); border-radius: var(--radius-pill); padding: 0 var(--space-sm); font-size: var(--text-sm); }
 .chip:hover { border-color: var(--color-ink); }
 .chip:active { transform: translateY(1px); }
+/* карточка продукта: крупные кнопки на всю ширину, удобно большим пальцем */
+.pcard { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.pcard .fi { margin-bottom: var(--space-sm); }
+.pcard h3 { margin-bottom: var(--space-2xs); }
+.pcard p { margin: 0 0 var(--space-xs); }
+.pcard .state { display: inline-flex; align-items: center; gap: var(--space-2xs); font-weight: 700; color: var(--color-mint-deep); }
+.pcard .state svg { width: 18px; height: 18px; stroke-width: 3; }
+.pcard .acts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); width: 100%; margin: var(--space-md) 0 var(--space-sm); }
+.pcard .acts .btn { min-height: 56px; font-size: var(--text-md); }
+.pcard .acts .btn:first-child { grid-column: 1 / -1; }
+.btn.ghost.danger { color: var(--color-warn); }
 .picrow { display: flex; align-items: center; gap: var(--space-sm); margin: 0 0 var(--space-xs); }
 .picrow .btn { margin-bottom: var(--edge-rest); }
 

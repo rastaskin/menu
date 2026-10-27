@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { createRequire } from 'node:module';
 import { fakeRelay } from '../fake-relay.mjs';
 const require = createRequire(import.meta.url);
-const { chromium } = require('playwright');
+const { chromium } = require('playwright'), jsQR = require('jsqr');
 const serve = require('../serve.js'), { fakeSheets } = require('../fake-sheets.js');
 const M = require('../../web/model.js'), SH = require('../../web/sheets.js'), seed = require('../../tools/seed.json');
 const SID = '1FakeSheetIdForTests_abcdefghijk';
@@ -19,6 +19,18 @@ async function route(ctx, fake, relay, state) {
 }
 /* обмен с таблицей сначала сливает данные на устройство, потом дописывает таблицу — ждём, а не проверяем сразу */
 async function until(fn, ms = 10000) { const t = Date.now(); while (!fn()) { if (Date.now() - t > ms) return false; await new Promise((r) => setTimeout(r, 50)); } return true; }
+/* снимок QR-кода с экрана → пиксели через <img> в странице → декодер jsQR */
+async function readQr(p) {
+  const png = (await p.locator('#modal svg.qr').screenshot()).toString('base64');
+  const px = await p.evaluate(async (b) => {
+    const im = new Image(); im.src = 'data:image/png;base64,' + b; await im.decode();
+    const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+    const x = c.getContext('2d'); x.drawImage(im, 0, 0);
+    return { w: c.width, h: c.height, d: Array.from(x.getImageData(0, 0, c.width, c.height).data) };
+  }, png);
+  const r = jsQR(Uint8ClampedArray.from(px.d), px.w, px.h);
+  return r && r.data;
+}
 const synced = (p) => p.waitForFunction(() => !window.__menu.SY.dirty && /Синхр/.test(document.querySelector('[data-sync]').textContent));
 
 test('приложение: таблица по кнопке, семья через релей, правки, офлайн, второе устройство', async () => {
@@ -46,6 +58,8 @@ test('приложение: таблица по кнопке, семья чер�
     await p.click('[data-act="family-new"]');
     await p.waitForSelector('#modal svg.qr');
     const link = await p.inputValue('#modal .copy input');
+    assert.equal(await readQr(p), link, 'QR-код на экране читается и ведёт на ту же ссылку');
+    await p.screenshot({ path: 'tests/e2e/shot-qr-mobile.png' });
     assert.match(link, /^https:\/\/rastaskin\.github\.io\/menu\/#join=[A-Za-z0-9_-]{22}$/);
     await p.click('#modal [data-act="show-words"]');
     assert.equal((await p.textContent('#modal .words')).trim().split(/\s+/).length, 12);
@@ -69,8 +83,18 @@ test('приложение: таблица по кнопке, семья чер�
     await p.click('.tabs [data-tab="shop"]');
     assert.match(await p.textContent('main'), /дома: Рис басмати 1 кг/);
     await p.screenshot({ path: 'tests/e2e/shot-shop-mobile.png', fullPage: false });
-    await p.click('li:has-text("Рис круглозёрный") [data-act="skip"]');
-    await p.click('li:has-text("Яйца С1") [data-act="buy"]');
+    // нажатие на продукт открывает карточку с крупными кнопками
+    await p.click('li:has-text("Рис круглозёрный") .tbtn');
+    await p.waitForSelector('#modal .pcard');
+    assert.equal(await p.locator('#modal .pcard .acts .btn').count(), 4);
+    await p.click('#modal [data-act="skip"]');
+    await p.waitForSelector('li.skip:has-text("Рис круглозёрный")');
+    await p.click('li:has-text("Яйца С1") .tbtn');
+    await p.waitForSelector('#modal .pcard');
+    await p.waitForTimeout(600);   // окно выезжает снизу
+    await p.screenshot({ path: 'tests/e2e/shot-card-mobile.png' });
+    await p.click('#modal [data-act="buy"]');
+    await p.waitForSelector('li.bought:has-text("Яйца С1")');
     await p.click('[data-act="move-home"]');
     await p.click('[data-sync]'); await synced(p);
 
