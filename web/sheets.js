@@ -66,7 +66,8 @@
       var vr = valueRanges[i] || {}, d = decodeSheet(sh, vr.values, stamp);
       counts[sh.title] = d.rows; stamped = stamped || d.stamped;
       if (sh.col === 'meta') rev = d.rev;
-      if (sh.col === 'tomb') d.recs.forEach(function (r) { S.tomb[r.id] = r._u; });
+      // старые пометки об удалении не возвращаем: релей и устройства их уже стёрли
+      if (sh.col === 'tomb') d.recs.forEach(function (r) { if (r._u >= stamp - M.TOMB_TTL) S.tomb[r.id] = r._u; });
       else d.recs.forEach(function (r) { S[sh.col][r.id] = M.clean(sh.col, r); });
     });
     return { S: S, counts: counts, rev: rev, stamped: stamped };

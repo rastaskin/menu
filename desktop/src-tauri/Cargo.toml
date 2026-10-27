@@ -1,7 +1,7 @@
 [package]
 name = "menu"
 version = "0.1.0"
-description = "Меню: меню на две недели, покупки, продукты дома"
+description = "Меню: меню на неделю, покупки, продукты дома, рецепты"
 edition = "2021"
 publish = false
 

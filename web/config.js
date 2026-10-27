@@ -7,5 +7,7 @@ window.MCONFIG = {
   desktopClientSecret: '',
   desktopPort: 0,
   /* релей синхронизации (relay/, Cloudflare Workers): хранит только шифр. Форк: выложите свой и подставьте адрес — и в CSP index.html */
-  relayUrl: 'https://menu-relay.menu-relay.workers.dev'
+  relayUrl: 'https://menu-relay.menu-relay.workers.dev',
+  /* адрес сайта для ссылки-приглашения (у окна на ПК своего адреса нет). Форк: свой адрес GitHub Pages */
+  appUrl: 'https://rastaskin.github.io/menu/'
 };

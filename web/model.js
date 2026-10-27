@@ -19,6 +19,7 @@
   };
   var NAMES = Object.keys(COLS);
   var BOOL = { done: 1, bought: 1, skip: 1, moved: 1 };
+  var TOMB_TTL = 180 * 86400000;   // пометка об удалении старше этого стирается (relay.js, sheets.js)
   var NUM = { price: 1, week: 1 };
 
   function blank() {
@@ -30,6 +31,13 @@
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function u(r) { return (r && +r._u) || 0; }
 
+  /* «1 234,50», «1.234,50», «1,234.50» → «1234.50»: последний из знаков , и . отделяет дробную часть, остальные — разряды */
+  function numText(s) {
+    s = s.replace(/\s| | /g, '');
+    var c = s.lastIndexOf(','), d = s.lastIndexOf('.');
+    if (c >= 0 && d >= 0) return c > d ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+    return s.replace(',', '.');
+  }
   /* Привести значение поля к типу. */
   function cast(f, v) {
     if (BOOL[f]) {
@@ -39,7 +47,7 @@
     }
     if (NUM[f]) {
       if (v === '' || v == null) return null;
-      var n = typeof v === 'number' ? v : parseFloat(String(v).replace(/\s| | /g, '').replace(',', '.'));
+      var n = typeof v === 'number' ? v : parseFloat(numText(String(v)));
       return isFinite(n) ? n : null;
     }
     return v == null ? '' : String(v);
@@ -151,7 +159,7 @@
   }
 
   var api = {
-    COLS: COLS, NAMES: NAMES, SLOTS: SLOTS, blank: blank, normalize: normalize, clean: clean, cast: cast,
+    COLS: COLS, NAMES: NAMES, SLOTS: SLOTS, TOMB_TTL: TOMB_TTL, blank: blank, normalize: normalize, clean: clean, cast: cast,
     put: put, del: del, merge: merge, equal: equal, clone: clone, list: list, stable: stable,
     norm: norm, productKey: productKey, pantryMatches: pantryMatches, okId: okId
   };

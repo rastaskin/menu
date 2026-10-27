@@ -68,3 +68,12 @@ test('релей: частота запросов, предел новых се�
   const full = await handleFamily(new Request(`https://relay.example/v1/${FID}/push`, { method: 'POST', headers: { ...auth(), 'Content-Type': 'application/json' }, body: JSON.stringify({ items: [{ k: K(1), ct: CT }] }) }), big, 'push', FID);
   assert.equal(full.status, 507);
 });
+
+test('релей: просьба стереть запись', async () => {
+  const r = relay();
+  await push(r, [{ k: K(1), ct: CT }, { k: K(2), ct: CT }]);
+  assert.equal((await push(r, [{ k: K(1), drop: true }])).status, 200);
+  const all = await (await r(`/v1/${FID}/pull?since=0`, { headers: auth() })).json();
+  assert.deepEqual(all.items.map((i) => i.k), [K(2)]);
+  assert.equal((await push(r, [{ k: 'xyz', drop: true }])).status, 400);
+});

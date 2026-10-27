@@ -86,3 +86,9 @@ test('ссылка на таблицу → id', () => {
   assert.equal(SH.parseSheetId('https://rastaskin.github.io/menu/#sheet=1AbCdEfGhIjKlMnOpQrStUvWxYz012345'), '1AbCdEfGhIjKlMnOpQrStUvWxYz012345');
   assert.equal(SH.parseSheetId('мусор'), '');
 });
+
+test('таблица: пометки об удалении старше 180 дней не возвращаются', () => {
+  const now = Date.now(), day = 86400000, tomb = SH.SHEETS.find((s) => s.col === 'tomb');
+  const vr = SH.SHEETS.map((s) => s === tomb ? { values: [['запись', '_u'], ['shop:old', now - 200 * day], ['shop:new', now - day]] } : {});
+  assert.deepEqual(Object.keys(SH.decodeAll(vr, now).S.tomb), ['shop:new']);
+});

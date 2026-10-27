@@ -20,7 +20,7 @@ function device(relay, keys, S0) {
   const d = { S: M.normalize(S0 || {}), sent: {}, seq: 0 };
   d.sync = async () => {
     const r = await R.run({ fetch: relay.fetch, url: 'https://relay.example', keys, get: () => d.S, persist: async (S) => { d.S = S; }, sent: d.sent, seq: d.seq });
-    d.sent = r.sent; d.seq = r.seq; return r;
+    d.sent = r.sent; d.seq = r.seq; r.dropped.forEach((k) => { delete d.S.tomb[k]; }); return r;
   };
   return d;
 }
@@ -63,4 +63,20 @@ test('релей: запись под чужим разделом (__proto__) о
   await A.sync();
   assert.equal(({}).polluted, undefined);
   assert.equal(A.S.pantry.p1.name, 'Рис');
+});
+
+test('релей: пометка об удалении старше 180 дней стирается с релея и с устройства', async () => {
+  const relay = fakeRelay(), keys = await F.derive(F.newRoot()), day = 86400000, T0 = Date.now() - 300 * day;
+  const A = device(relay, keys);
+  M.put(A.S, 'pantry', 'old', { name: 'Старое' }, T0); M.put(A.S, 'pantry', 'new', { name: 'Свежее' }, Date.now());
+  await A.sync();
+  M.del(A.S, 'pantry', 'old', T0 + day); M.del(A.S, 'pantry', 'new', Date.now() + 1);
+  await A.sync();                                   // пометки ушли на релей
+  const r = await A.sync();                         // старая уже на релее — просим стереть
+  assert.deepEqual(r.dropped, ['pantry:old']);
+  assert.ok(!('pantry:old' in A.S.tomb) && 'pantry:new' in A.S.tomb, 'у себя убрана только старая пометка');
+  assert.equal((await A.sync()).pushed, 0, 'повторно ничего не отправляется');
+  const B = device(relay, keys); await B.sync();
+  assert.deepEqual(Object.keys(B.S.tomb), ['pantry:new'], 'новое устройство старую пометку не получает');
+  assert.equal(Object.keys(B.S.pantry).length, 0);
 });

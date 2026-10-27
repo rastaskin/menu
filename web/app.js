@@ -1,5 +1,5 @@
-/* «Меню» — интерфейс. Без фреймворков. Данные: IndexedDB (локально, сохраняется при каждом изменении)
-   + Google Таблица (синхронизация между устройствами семьи; таблицу можно править и руками). */
+/* «Меню» — интерфейс. Без фреймворков. Данные: IndexedDB (локально, сохраняется при каждом изменении);
+   устройства семьи обмениваются через релей со сквозным шифрованием (relay.js), Google Таблица — разовый обмен по кнопке. */
 (function () {
   'use strict';
   var M = window.MModel, SH = window.MSheets, CFG = window.MCONFIG || {};
@@ -99,7 +99,7 @@
     var t = M.norm(text), r = M.list(S, 'recipes').filter(function (x) { return x.name && IMG[imgKey('r', x.name)] && t.indexOf(M.norm(x.name).split(' (')[0]) >= 0; })[0];
     return r ? pic('r', r.name, text) : F.html(text);
   }
-  /* файл → JPEG data URL; square — центральный квадрат (для картинок), иначе всё фото (для распознавания) */
+  /* файл → JPEG data URL; square — центральный квадрат (для картинок продуктов и рецептов), иначе всё фото */
   async function toJpeg(file, max, square) {
     var bmp; try { bmp = await createImageBitmap(file); } catch (e) { var er = new Error('format'); er.file = file.name; throw er; }
     var sx = 0, sy = 0, sw = bmp.width, sh = bmp.height;
@@ -196,7 +196,7 @@
       return;
     }
     if (!CFG.webClientId) { alert('В config.js не задан Client ID Google'); return; }
-    var st = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    var st = b64url(rnd(16));
     lsSet('oauth', { st: st, ts: Date.now() }); lsSet('exchange', 1);
     var q = { client_id: CFG.webClientId, redirect_uri: location.origin + location.pathname.replace(/index\.html$/, ''), response_type: 'token', scope: SCOPE, state: st, include_granted_scopes: 'true' };
     if (prompt) q.prompt = prompt;
@@ -245,6 +245,7 @@
         persist: async function (Mg) { current(); S = M.merge(S, Mg); await saveState(); }
       });
       current();
+      if (res.dropped.length) { res.dropped.forEach(function (k) { delete S.tomb[k]; }); await saveState(); }
       RS = { seq: res.seq, sent: res.sent, at: Date.now() }; await store.set('relay', RS);
       if (editSeq === seq) SY.dirty = false;
       await saveSync(); setStatus('ok');
@@ -298,7 +299,7 @@
   }
 
   /* ссылка-приглашение: ключ семьи во фрагменте #join=… (на сервер фрагмент не уходит) */
-  function joinLink() { return 'https://rastaskin.github.io/menu/#join=' + FAMILY.code; }
+  function joinLink() { return (CFG.appUrl || location.origin + location.pathname) + '#join=' + FAMILY.code; }
   function deviceModal() {
     var link = joinLink();
     modal('<div class="device"><h3>Новое устройство</h3>' +
@@ -566,7 +567,8 @@
     var rules = M.list(S, 'rules').sort(function (a, b) { return a.id < b.id ? -1 : 1; });
     if (rules.length) h += '<section class="box"><h3>Правила на эти недели</h3>' + rules.map(function (r) { return '<p><b>' + esc(r.title) + '.</b> ' + esc(r.text) + '</p>'; }).join('') + '</section>';
     h += '<section class="box"><h3>Копия данных</h3><div class="row"><button class="btn ghost" data-act="export">Скачать JSON</button>' +
-      '<label class="btn ghost">Загрузить JSON<input type="file" accept="application/json,.json" data-input="import" hidden></label></div>' +
+      '<label class="btn ghost">Загрузить JSON<input type="file" accept="application/json,.json" data-input="import" hidden></label>' +
+      (UI.backup ? '<button class="btn ghost" data-act="export-backup">Данные до присоединения, ' + new Date(UI.backup).toLocaleDateString('ru-RU') + '</button>' : '') + '</div>' +
       '<p class="muted">Всё сохраняется на устройстве сразу после каждого изменения, даже без сети.</p></section>';
     return h;
   }
@@ -716,7 +718,8 @@
         if (TAURI) { DESK.signed = false; invoke('google_logout'); } render(); break;
       case 'disconnect': if (confirm('Отключить таблицу? Данные на устройстве и в семье останутся.')) { SY = { dirty: SY.dirty }; saveSync(); render(); } break;
       case 'copy': { var v = b.getAttribute('data-v'); (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(function () { b.textContent = 'Скопировано'; }, function () { prompt('Скопируйте ссылку', v); }); break; }
-      case 'export': exportJson(); break;
+      case 'export': exportJson(S, 'menu-' + today()); break;
+      case 'export-backup': store.get('backup').then(function (bk) { if (bk) exportJson(bk.S, 'menu-before-join-' + today()); }); break;
       case 'member-edit': memberEditor(id); break;
       case 'member-del': { var md = S.family[id]; if (md && confirmSoft(b, 'Удалить')) { closeModal(); commit(function (c) { c.del('family', id); }); } break; }
       case 'fam-forget': FAM.key = null; FAM.cache = {}; store.set('famkey', null); render(); break;
@@ -746,7 +749,7 @@
         break;
       }
       case 'cook': { var d = f.getAttribute('data-date'), r = dayRec(d); closeModal(); commit(function (c) { c.put('days', r ? r.id : 'd' + d, { date: d, cook: g('cook') }); }); break; }
-      case 'shop': { var id = f.getAttribute('data-id'); closeModal(); commit(function (c) { c.put('shop', id, { name: g('name'), qty: g('qty'), price: g('price'), cat: g('cat'), week: g('week') }); }); break; }
+      case 'shop': { var id = f.getAttribute('data-id'); closeModal(); commit(function (c) { c.put('shop', id, { name: g('name'), qty: g('qty'), price: g('price'), cat: g('cat'), week: +g('week') || (S.shop[id] && S.shop[id].week) || 1 }); }); break; }
       case 'shop-add': commit(function (c) { c.put('shop', uid('s'), { name: g('name'), qty: g('qty'), price: g('price'), cat: g('cat'), week: +f.getAttribute('data-w') || 1 }); }); break;
       case 'pantry': { var pid = f.getAttribute('data-id'); closeModal(); commit(function (c) { c.put('pantry', pid, { name: g('name'), qty: g('qty'), place: g('place'), until: g('until'), note: g('note') }); }); break; }
       case 'pantry-add': commit(function (c) { c.put('pantry', uid('p'), { name: g('name'), qty: g('qty'), place: g('place'), until: g('until') }); }); break;
@@ -817,9 +820,9 @@
     }
   });
 
-  function exportJson() {
-    var blob = new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' });
-    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'menu-' + today() + '.json';
+  function exportJson(obj, name) {
+    var blob = new Blob([JSON.stringify(obj, null, 1)], { type: 'application/json' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name + '.json';
     document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
 
@@ -840,8 +843,9 @@
     if (code === FAMILY.code) return;
     var hasData = M.list(S, 'meals').length || M.list(S, 'pantry').length || M.list(S, 'family').length || M.list(S, 'shop').length || M.list(S, 'recipes').length;
     var q = 'Присоединить это устройство к семье по ссылке?' + (fromLink ? ' Открывайте только ссылки от своих.' : '') +
-      (hasData || FAMILY.code ? ' Данные на этом устройстве будут заменены данными семьи.' : '');
+      (hasData || FAMILY.code ? ' Данные на этом устройстве будут заменены данными семьи; их копию можно будет скачать в «Ещё».' : '');
     if ((fromLink || hasData || FAMILY.code) && !confirm(q)) return;
+    if (hasData) { UI.backup = Date.now(); await store.set('backup', { at: UI.backup, S: S }); }   // прежние данные можно скачать в «Ещё»
     S = M.blank(); await saveState();
     await familyUse(code); await relayReset();
     UI.tab = 'today'; lsSet('tab', 'today'); render(); syncNow();
@@ -855,6 +859,7 @@
     SY = (await store.get('sync')) || {};
     UI.tab = lsGet('tab') || 'today'; if (!/^(today|menu|shop|home|recipes|more)$/.test(UI.tab)) UI.tab = 'today';
     IMG = (await store.get('imgs')) || {};
+    var bk = await store.get('backup'); UI.backup = bk && bk.at;
     await famLoadKey();
     var code = await store.get('famcode'); if (code && FK.fromCode(code)) await familyUse(code);
     RS = (await store.get('relay')) || RS;

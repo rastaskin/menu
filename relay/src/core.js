@@ -1,6 +1,6 @@
 /* Ядро релея «Меню». Без Cloudflare: его гоняют node-тесты (tests/relay.test.mjs) и подделка релея в e2e.
    Релей знает только адрес семьи fid, непрозрачные имена записей k и шифр ct. Расшифровать ничего не может. */
-export const LIMITS = { body: 512 * 1024, item: 64 * 1024, items: 20000, bytes: 50 * 1024 * 1024, page: 500 };
+export const LIMITS = { body: 512 * 1024, item: 64 * 1024, items: 100000, bytes: 50 * 1024 * 1024, page: 500 };
 const HEX64 = /^[0-9a-f]{64}$/;
 const CT = /^v1\.[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+$/;
 
@@ -36,7 +36,7 @@ function same(a, b) {
   return r === 0;
 }
 
-/* Запрос к одной семье. store: {getAuth, setAuth, put(k, ct) → seq, since(seq, n) → [{k, ct, seq}], count, size, last,
+/* Запрос к одной семье. store: {getAuth, setAuth, put(k, ct) → seq, drop(k), since(seq, n) → [{k, ct, seq}], count, size, last,
    claim?(fid) → можно ли завести новую семью}. Пропуск семьи закрепляется первой записью: релей хранит только SHA-256 от него. */
 export async function handleFamily(req, store, op, fid) {
   const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
@@ -60,17 +60,20 @@ export async function handleFamily(req, store, op, fid) {
   let body; try { body = JSON.parse(text); } catch (e) { return json({ error: 'json' }, 400); }
   const items = body && Array.isArray(body.items) ? body.items : null;
   if (!items || !items.length || items.length > LIMITS.page) return json({ error: 'items' }, 400);
+  /* элемент — запись {k, ct} или просьба стереть старую пометку об удалении {k, drop: true} */
   for (const it of items) {
-    if (!it || !HEX64.test(it.k) || typeof it.ct !== 'string' || it.ct.length > LIMITS.item || !CT.test(it.ct)) return json({ error: 'item' }, 400);
+    if (!it || !HEX64.test(it.k)) return json({ error: 'item' }, 400);
+    if (it.drop === true) continue;
+    if (typeof it.ct !== 'string' || it.ct.length > LIMITS.item || !CT.test(it.ct)) return json({ error: 'item' }, 400);
   }
-  const bytes = items.reduce((n, it) => n + it.k.length + it.ct.length, 0);
+  const bytes = items.reduce((n, it) => n + (it.drop ? 0 : it.k.length + it.ct.length), 0);
   if ((await store.count()) + items.length > LIMITS.items || (await store.size()) + bytes > LIMITS.bytes) return json({ error: 'full' }, 507);
   if (!have) {
     if (store.claim && !(await store.claim(fid))) return json({ error: 'closed' }, 503);   // новых семей сейчас не принимаем
     await store.setAuth(h);
   }
   let seq = 0;
-  for (const it of items) seq = await store.put(it.k, it.ct);
+  for (const it of items) { if (it.drop) await store.drop(it.k); else seq = await store.put(it.k, it.ct); }
   return json({ seq });
 }
 
@@ -80,6 +83,7 @@ export function memoryStore(claim) {
   return {
     getAuth: async () => auth, setAuth: async (h) => { auth = h; },
     put: async (k, ct) => { seq++; rows.set(k, { k, ct, seq }); return seq; },
+    drop: async (k) => { rows.delete(k); },
     since: async (s, n) => [...rows.values()].filter((r) => r.seq > s).sort((a, b) => a.seq - b.seq).slice(0, n),
     count: async () => rows.size, last: async () => seq,
     size: async () => [...rows.values()].reduce((n, r) => n + r.k.length + r.ct.length, 0),

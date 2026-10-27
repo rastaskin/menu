@@ -54,6 +54,8 @@ test('смена семьи во время синхронизации: нова
     assert.ok(await until(has), 'данные семьи Y пришли на A');
     await synced(A);
     assert.equal(await A.evaluate(() => Object.keys(window.__menu.S.meals).length), 0, 'данных семьи X на A нет');
+    await A.click('.tabs [data-tab="more"]');
+    assert.ok(await A.isVisible('[data-act="export-backup"]'), 'прежние данные A можно скачать');
     assert.deepEqual(errors, []);
   } finally { relay.state.gate = null; release(); await browser.close(); srv.close(); }
 });
