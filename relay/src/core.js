@@ -1,6 +1,6 @@
 /* Ядро релея «Меню». Без Cloudflare: его гоняют node-тесты (tests/relay.test.mjs) и подделка релея в e2e.
    Релей знает только адрес семьи fid, непрозрачные имена записей k и шифр ct. Расшифровать ничего не может. */
-export const LIMITS = { body: 512 * 1024, item: 64 * 1024, items: 20000, page: 500 };
+export const LIMITS = { body: 512 * 1024, item: 64 * 1024, items: 20000, bytes: 50 * 1024 * 1024, page: 500 };
 const HEX64 = /^[0-9a-f]{64}$/;
 const CT = /^v1\.[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+$/;
 
@@ -36,9 +36,9 @@ function same(a, b) {
   return r === 0;
 }
 
-/* Запрос к одной семье. store: {getAuth, setAuth, put(k, ct) → seq, since(seq, n) → [{k, ct, seq}], count, last}.
-   Пропуск семьи закрепляется первой записью: релей хранит только SHA-256 от него. */
-export async function handleFamily(req, store, op) {
+/* Запрос к одной семье. store: {getAuth, setAuth, put(k, ct) → seq, since(seq, n) → [{k, ct, seq}], count, size, last,
+   claim?(fid) → можно ли завести новую семью}. Пропуск семьи закрепляется первой записью: релей хранит только SHA-256 от него. */
+export async function handleFamily(req, store, op, fid) {
   const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   if (token.length < 32 || token.length > 128) return json({ error: 'auth' }, 401);
   const h = await sha256hex(token), have = await store.getAuth();
@@ -63,30 +63,57 @@ export async function handleFamily(req, store, op) {
   for (const it of items) {
     if (!it || !HEX64.test(it.k) || typeof it.ct !== 'string' || it.ct.length > LIMITS.item || !CT.test(it.ct)) return json({ error: 'item' }, 400);
   }
-  if ((await store.count()) + items.length > LIMITS.items) return json({ error: 'full' }, 507);
-  if (!have) await store.setAuth(h);
+  const bytes = items.reduce((n, it) => n + it.k.length + it.ct.length, 0);
+  if ((await store.count()) + items.length > LIMITS.items || (await store.size()) + bytes > LIMITS.bytes) return json({ error: 'full' }, 507);
+  if (!have) {
+    if (store.claim && !(await store.claim(fid))) return json({ error: 'closed' }, 503);   // новых семей сейчас не принимаем
+    await store.setAuth(h);
+  }
   let seq = 0;
   for (const it of items) seq = await store.put(it.k, it.ct);
   return json({ seq });
 }
 
 /* Хранилище в памяти — для тестов и подделки релея в e2e. */
-export function memoryStore() {
+export function memoryStore(claim) {
   let auth = '', seq = 0; const rows = new Map();
   return {
     getAuth: async () => auth, setAuth: async (h) => { auth = h; },
     put: async (k, ct) => { seq++; rows.set(k, { k, ct, seq }); return seq; },
     since: async (s, n) => [...rows.values()].filter((r) => r.seq > s).sort((a, b) => a.seq - b.seq).slice(0, n),
-    count: async () => rows.size, last: async () => seq
+    count: async () => rows.size, last: async () => seq,
+    size: async () => [...rows.values()].reduce((n, r) => n + r.k.length + r.ct.length, 0),
+    claim
   };
 }
 
-/* Маршрутизатор: CORS, адрес, метод; запрос семьи — в её хранилище. family(fid, req, op) → Response */
+/* Реестр новых семей: не больше max всего и perDay за сутки (UTC). Семьи, заведённые до реестра, в нём не числятся.
+   db: {has(fid), total(), onDay(day), add(fid, day)}. Повторная заявка той же семьи проходит. */
+export async function claimFamily(db, fid, day, max, perDay) {
+  if (await db.has(fid)) return true;
+  if ((await db.total()) >= max || (await db.onDay(day)) >= perDay) return false;
+  await db.add(fid, day);
+  return true;
+}
+export function memoryRegistry() {
+  const m = new Map();
+  return {
+    has: async (fid) => m.has(fid), total: async () => m.size,
+    onDay: async (day) => [...m.values()].filter((d) => d === day).length, add: async (fid, day) => { m.set(fid, day); }
+  };
+}
+
+/* Маршрутизатор: CORS, адрес, метод, частота запросов с одного адреса (env.LIMITER — Rate Limiting Cloudflare);
+   запрос семьи — в её хранилище. family(fid, req, op) → Response */
 export async function handle(req, env, family) {
   const origin = req.headers.get('Origin') || '', ch = cors(origin, env);
   if (req.method === 'OPTIONS') return new Response(null, { status: allowedOrigin(origin, env) ? 204 : 403, headers: ch });
   const r = route(req.url);
   if (!r) return json({ error: 'not_found' }, 404, ch);
+  if (env && env.LIMITER) {
+    const { success } = await env.LIMITER.limit({ key: req.headers.get('CF-Connecting-IP') || 'anon' });
+    if (!success) return json({ error: 'rate' }, 429, Object.assign({ 'Retry-After': '60' }, ch));
+  }
   if ((r.op === 'push' && req.method !== 'POST') || (r.op === 'pull' && req.method !== 'GET')) return json({ error: 'method' }, 405, ch);
   if (origin && !allowedOrigin(origin, env)) return json({ error: 'origin' }, 403, ch);
   const res = await family(r.fid, req, r.op);

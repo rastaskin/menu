@@ -17,4 +17,14 @@ Cloudflare Worker + Durable Object (SQLite). Хранит только шифр 
    - `desktop/src-tauri/capabilities/default.json` → разрешённые адреса `http:default`.
 4. Если сайт не на `rastaskin.github.io` — поправьте `ALLOWED_ORIGINS` в `wrangler.toml`.
 
+## Пределы
+
+| Что | Сколько | Где менять |
+|---|---|---|
+| Запросов с одного IP | 120 в минуту (устройство делает 2–4) | `[[ratelimits]]` в `wrangler.toml` |
+| Новых семей | 50 всего, 5 в сутки; уже работающих не касается | `MAX_FAMILIES`, `NEW_FAMILIES_PER_DAY` в `wrangler.toml` |
+| Одна семья | 20 000 записей и 50 МБ шифра | `LIMITS` в `src/core.js` |
+
+Ответы: 429 — подождать, 503 — новых семей сейчас не принимаем, 507 — место семьи закончилось. Приложение показывает их понятным текстом.
+
 Тесты релея — `tests/relay.test.mjs` и `tests/relaysync.test.mjs` (`npm test` в корне).

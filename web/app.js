@@ -220,8 +220,10 @@
   }
 
   /* ---------- синхронизация: семья через релей (сквозное шифрование), таблица — разовым обменом ---------- */
-  var FK = window.MFamily, RL = window.MRelay, FAMILY = { code: '', keys: null }, RS = { seq: 0, sent: {}, at: 0 };
+  /* FAMILY.gen растёт при каждой смене семьи: проход синхронизации, начатый для прежней семьи, свой результат выбрасывает */
+  var FK = window.MFamily, RL = window.MRelay, FAMILY = { code: '', keys: null, gen: 0 }, RS = { seq: 0, sent: {}, at: 0 };
   async function familyUse(code) {
+    FAMILY.gen++;
     FAMILY.code = code || ''; FAMILY.keys = code ? await FK.derive(FK.fromCode(code)) : null;
     await store.set('famcode', code || null);
   }
@@ -234,19 +236,25 @@
     if (!CFG.relayUrl) return setStatus('error', 'В этой сборке не указан адрес релея');
     if (!navigator.onLine) return setStatus('offline');
     syncing = true; setStatus('sync');
-    var seq = editSeq;
+    var seq = editSeq, gen = FAMILY.gen;
+    function current() { if (gen !== FAMILY.gen) { var e = new Error('family changed'); e.stale = true; throw e; } }
     try {
       var res = await RL.run({
         fetch: hfetch, url: CFG.relayUrl, keys: FAMILY.keys, sent: RS.sent, seq: RS.seq,
-        get: function () { return S; },
-        persist: async function (Mg) { S = M.merge(S, Mg); await saveState(); }
+        get: function () { current(); return S; },
+        persist: async function (Mg) { current(); S = M.merge(S, Mg); await saveState(); }
       });
+      current();
       RS = { seq: res.seq, sent: res.sent, at: Date.now() }; await store.set('relay', RS);
       if (editSeq === seq) SY.dirty = false;
       await saveSync(); setStatus('ok');
       if (res.changed) { render(); famDecrypt(); }
     } catch (e) {
-      if (e.status === 401 || e.status === 403) setStatus('denied');
+      if (e.stale) again = true;
+      else if (e.status === 401 || e.status === 403) setStatus('denied');
+      else if (e.status === 429) setStatus('error', 'Релей просит подождать — повторю позже');
+      else if (e.status === 503) setStatus('error', 'Релей сейчас не принимает новые семьи');
+      else if (e.status === 507) setStatus('error', 'Место для семьи на релее закончилось');
       else if (!navigator.onLine || e instanceof TypeError) setStatus('offline');
       else setStatus('error', String(e.message || e));
     } finally {

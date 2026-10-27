@@ -54,3 +54,13 @@ test('релей: чужая семья ничего не получает', asy
   await A.sync(); await X.sync();
   assert.equal(M.list(X.S, 'meals').length, 0);
 });
+
+test('релей: запись под чужим разделом (__proto__) отбрасывается', async () => {
+  const relay = fakeRelay(), keys = await F.derive(F.newRoot());
+  const bad = [await F.seal(keys, { c: '__proto__', id: 'polluted', r: { x: 1 } }), await F.seal(keys, { c: 'pantry', id: 'p1', r: { id: 'p1', name: 'Рис', _u: 5 } })];
+  await relay.fetch(`https://relay.example/v1/${keys.fid}/push`, { method: 'POST', headers: { Authorization: 'Bearer ' + keys.auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ items: bad }) });
+  const A = device(relay, keys);
+  await A.sync();
+  assert.equal(({}).polluted, undefined);
+  assert.equal(A.S.pantry.p1.name, 'Рис');
+});

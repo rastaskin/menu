@@ -22,9 +22,9 @@
       var j = await res.json();
       for (var i = 0; i < j.items.length; i++) {
         var o; try { o = await F.open(c.keys, j.items[i]); } catch (e) { continue; }   // чужое или битое — пропускаем
-        if (!o || !o.c || o.id == null || !M.okId(o.id)) continue;
+        if (!o || M.NAMES.indexOf(o.c) < 0 || o.id == null || !M.okId(o.id)) continue;   // только известные разделы: не __proto__ и т. п.
         if (o.t) R.tomb[o.c + ':' + o.id] = Math.max(R.tomb[o.c + ':' + o.id] || 0, +o.t);
-        else if (R[o.c] && o.r) R[o.c][o.id] = o.r;
+        else if (o.r) R[o.c][o.id] = o.r;
         got++;
       }
       seq = j.seq || seq;

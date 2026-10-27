@@ -5,11 +5,28 @@ compatibility_date = "2026-10-01"
 
 [vars]
 ALLOWED_ORIGINS = "https://rastaskin.github.io,http://tauri.localhost,tauri://localhost"
+# новые семьи: всего и за сутки (UTC); уже работающие семьи эти пределы не затрагивают
+MAX_FAMILIES = "50"
+NEW_FAMILIES_PER_DAY = "5"
+
+# не больше 120 запросов в минуту с одного IP-адреса (устройство семьи делает 2–4)
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+simple = { limit = 120, period = 60 }
 
 [[durable_objects.bindings]]
 name = "FAMILY"
 class_name = "Family"
 
+[[durable_objects.bindings]]
+name = "REGISTRY"
+class_name = "Registry"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Family"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Registry"]
