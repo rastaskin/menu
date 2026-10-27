@@ -17,6 +17,8 @@ async function route(ctx, fake, relay, state) {
   });
   await ctx.route('https://accounts.google.com/**', (rt) => rt.fulfill({ status: 200, body: 'google' }));
 }
+/* обмен с таблицей сначала сливает данные на устройство, потом дописывает таблицу — ждём, а не проверяем сразу */
+async function until(fn, ms = 10000) { const t = Date.now(); while (!fn()) { if (Date.now() - t > ms) return false; await new Promise((r) => setTimeout(r, 50)); } return true; }
 const synced = (p) => p.waitForFunction(() => !window.__menu.SY.dirty && /Синхр/.test(document.querySelector('[data-sync]').textContent));
 
 test('приложение: таблица по кнопке, семья через релей, правки, офлайн, второе устройство', async () => {
@@ -117,7 +119,7 @@ test('приложение: таблица по кнопке, семья чер�
     await p.click('.tabs [data-tab="more"]');
     await p.click('[data-act="sheet-now"]');
     await p.waitForFunction(() => window.__menu.S.meals['2026-10-28/обед'].text === 'Суп от Claude');
-    assert.equal(cell(), 'Плов с курицей', 'обмен отправил правки устройства в таблицу');
+    assert.ok(await until(() => cell() === 'Плов с курицей'), 'обмен отправил правки устройства в таблицу');
     await synced(p);
     await p2.evaluate(() => window.__menu.syncNow());
     await p2.waitForFunction(() => window.__menu.S.meals['2026-10-28/обед'].text === 'Суп от Claude');
