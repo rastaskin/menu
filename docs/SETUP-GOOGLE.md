@@ -2,15 +2,15 @@
 
 Около 10 минут, один раз. Нужен, если вы разворачиваете свою копию (форк): приложение будет входить в Google через ваш проект.
 
-## 1. Проект и Sheets API
-console.cloud.google.com → создайте проект → **APIs & Services → Library** → **Google Sheets API** → **Enable**.
+## 1. Проект, Sheets API и Drive API
+console.cloud.google.com → создайте проект → **APIs & Services → Library** → **Google Sheets API** → **Enable**, затем там же **Google Drive API** → **Enable** (для «Войти через Google»: ключ семьи в скрытой папке приложения на Диске).
 
 ## 2. Экран согласия и доступ к таблицам
 **Google Auth Platform → Branding**: название приложения и ваша почта.
 **Audience**: тип External, режим Testing; в **Test users** добавьте Google-аккаунты всех, кто будет входить.
-**Data access → Add or remove scopes** → вручную: `https://www.googleapis.com/auth/spreadsheets` → **Update → Save**.
+**Data access → Add or remove scopes** → вручную: `https://www.googleapis.com/auth/spreadsheets` и `https://www.googleapis.com/auth/drive.appdata` → **Update → Save**.
 
-Что это значит: приложение сможет читать и менять Google Таблицы того, кто вошёл. На сайте токен живёт час и хранится только на устройстве; на ПК refresh token лежит в диспетчере учётных данных Windows.
+Что это значит: приложение сможет читать и менять Google Таблицы того, кто вошёл, и хранить ключ семьи в своей скрытой папке на его Google Диске (другие файлы Диска ему не видны). На сайте токен живёт час и хранится только на устройстве; на ПК refresh token лежит в диспетчере учётных данных Windows.
 
 ## 3. Клиенты
 **Clients → Create client**:

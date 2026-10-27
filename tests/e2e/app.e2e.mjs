@@ -101,7 +101,7 @@ test('приложение: таблица по кнопке, семья чер�
     // релей видит только шифр
     const traffic = relay.seen.join('');
     assert.ok(traffic.length > 1000);
-    assert.doesNotMatch(traffic, /Плов|Рис|Яйца|meals|pantry|2026-10-27/);
+    assert.doesNotMatch(traffic, /Плов|Рис|Яйца|"meals"|"pantry"|2026-10-27/);   // в кавычках: латиница изредка складывается в base64 сама
     // в таблицу правки уходят только по кнопке
     const cell = () => { const s = fake.book.sheets['Меню'], h = s[0]; return s.find((r) => r[0] === '2026-10-27/ужин')[h.indexOf('блюдо')]; };
     assert.notEqual(cell(), 'Плов с курицей');

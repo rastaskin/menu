@@ -22,6 +22,7 @@ test('неделя — доска: перенос мышью и пальцем �
     await p.click('.tabs [data-tab="menu"]');
     await p.click('.seg button >> nth=0');
     await p.waitForSelector('[data-board] .col');
+    await p.evaluate(() => { document.querySelector('[data-board]').scrollLeft = 0; });   // доска открывается на сегодняшнем дне — начинаем с первого
 
     // мышь: ужин понедельника на обед вторника — занятое место меняется местами, окно блюда не открывается
     const a = await meal(p, D1, 'ужин'), b = await meal(p, D2, 'обед');

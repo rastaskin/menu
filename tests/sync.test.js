@@ -92,3 +92,11 @@ test('таблица: пометки об удалении старше 180 дн
   const vr = SH.SHEETS.map((s) => s === tomb ? { values: [['запись', '_u'], ['shop:old', now - 200 * day], ['shop:new', now - day]] } : {});
   assert.deepEqual(Object.keys(SH.decodeAll(vr, now).S.tomb), ['shop:new']);
 });
+
+test('таблица: фото членов семьи в неё не попадают и обмен их не стирает', () => {
+  const S = M.normalize({ family: { f1: { name: 'Член семьи', color: 'mint', _u: 5 } }, photos: { f1: { img: 'data:image/jpeg;base64,AAAA', _u: 5 } } });
+  const data = SH.encodeAll(S, {}, 1);
+  assert.doesNotMatch(JSON.stringify(data), /data:image/);
+  const back = SH.decodeAll(data.map((d) => ({ values: d.values })), 10).S;
+  assert.equal(M.merge(S, back).photos.f1.img, 'data:image/jpeg;base64,AAAA');
+});

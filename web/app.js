@@ -3,7 +3,8 @@
 (function () {
   'use strict';
   var M = window.MModel, SH = window.MSheets, CFG = window.MCONFIG || {};
-  var SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
+  /* таблица + скрытая папка приложения на Google Диске (ключ семьи, gdrive.js) */
+  var SCOPE = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.appdata';
   var AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
   var $app = document.getElementById('app');
 
@@ -187,17 +188,21 @@
     if (TAURI && await desktopRefresh()) return lsGet('token').v;
     var e = new Error('token'); e.status = 401; throw e;
   }
-  function login(prompt) {
+  /* after — что сделать после входа: 'sheet' — обмен с таблицей, 'gload' / 'gsave' / 'gforget' — ключ семьи в Google (googleKey) */
+  function login(prompt, after) {
+    after = after || 'sheet';
+    var then = function () { if (after === 'sheet') sheetNow(); else googleKey(after, true); };
+    var say = function (m) { if (after === 'sheet') UI.sheet = m; else UI.gkey = m; render(); };
     if (TAURI) {
-      if (!CFG.desktopClientSecret) { UI.sheet = 'В этой сборке нет секрета Desktop-клиента Google'; render(); return; }
-      UI.sheet = 'busy'; render();
-      desktopLogin().then(function () { SY.authed = true; saveSync(); render(); sheetNow(); })
-        .catch(function (e) { UI.sheet = 'Вход не завершён: ' + (e.message || e); render(); });
+      if (!CFG.desktopClientSecret) { say('В этой сборке нет секрета Desktop-клиента Google'); return; }
+      say('busy');
+      desktopLogin().then(function () { SY.authed = true; saveSync(); render(); then(); })
+        .catch(function (e) { say('Вход не завершён: ' + (e.message || e)); });
       return;
     }
     if (!CFG.webClientId) { alert('В config.js не задан Client ID Google'); return; }
     var st = b64url(rnd(16));
-    lsSet('oauth', { st: st, ts: Date.now() }); lsSet('exchange', 1);
+    lsSet('oauth', { st: st, ts: Date.now() }); lsSet('after', after);
     var q = { client_id: CFG.webClientId, redirect_uri: location.origin + location.pathname.replace(/index\.html$/, ''), response_type: 'token', scope: SCOPE, state: st, include_granted_scopes: 'true' };
     if (prompt) q.prompt = prompt;
     if (SY.hint) q.login_hint = SY.hint;
@@ -300,6 +305,34 @@
 
   /* ссылка-приглашение: ключ семьи во фрагменте #join=… (на сервер фрагмент не уходит) */
   function joinLink() { return (CFG.appUrl || location.origin + location.pathname) + '#join=' + FAMILY.code; }
+  /* ключ семьи в Google Диске (gdrive.js): gload — войти в семью, gsave — сохранить, gforget — убрать.
+     again — уже после свежего входа: второй раз не перелогиниваемся */
+  var GD = window.MGDrive;
+  async function googleKey(op, again) {
+    if (!tokenValid()) { login('select_account', op); return; }
+    UI.gkey = 'busy'; render();
+    try {
+      if (op === 'gload') {
+        var code = await GD.load(hfetch, getToken);
+        if (!code || !FK.fromCode(code)) { UI.gkey = 'В этом Google-аккаунте ключа семьи нет. Подключите устройство по QR-коду или ссылке, а потом нажмите «Сохранить ключ в Google».'; render(); return; }
+        UI.gkey = ''; await joinFamily(code);
+        if (FAMILY.code === code) { UI.gsaved = true; lsSet('gkey', 1); }
+      } else if (op === 'gsave') {
+        await GD.save(hfetch, getToken, FAMILY.code); UI.gsaved = true; lsSet('gkey', 1); UI.gkey = 'Ключ семьи сохранён в Google.';
+      } else {
+        await GD.forget(hfetch, getToken); UI.gsaved = false; lsSet('gkey', null); UI.gkey = 'Ключ семьи убран из Google.';
+      }
+    } catch (e) {
+      if (!again && (e.status === 401 || e.reason === 'insufficientPermissions')) {   // нет входа или старый вход без доступа к Диску
+        lsSet('token', null); if (TAURI) DESK.signed = false;
+        login('consent', op); return;
+      }
+      UI.gkey = e.status === 403 ? 'Google не дал доступ к Диску. Проверьте, что в проекте Google Cloud включён Google Drive API.'
+        : !navigator.onLine ? 'Нет сети' : 'Не получилось: ' + String(e.message || e);
+    }
+    render();
+  }
+  function gkeyNote() { return UI.gkey ? '<p class="muted" role="status">' + (UI.gkey === 'busy' ? 'Связываюсь с Google…' : esc(UI.gkey)) + '</p>' : ''; }
   function deviceModal() {
     var link = joinLink();
     modal('<div class="device"><h3>Новое устройство</h3>' +
@@ -313,11 +346,18 @@
     var h = '<section class="box" id="devices"><h3>Синхронизация</h3>';
     if (!FAMILY.keys) {
       h += '<p>Устройства семьи обмениваются данными через релей. Всё шифруется на устройстве — сервер видит только шифр. Регистрации нет: устройства объединяет ключ семьи.</p>' +
-        '<div class="row"><button type="button" class="btn" data-act="family-new">Создать семью</button></div>' +
+        '<div class="row"><button type="button" class="btn" data-act="family-new">Создать семью</button>' +
+        '<button type="button" class="btn ghost" data-act="gkey-load"' + (UI.gkey === 'busy' ? ' disabled' : '') + '>Войти через Google</button></div>' +
+        '<p class="muted">«Войти через Google» подключит семью, если её ключ уже сохранён в этом Google-аккаунте с другого вашего устройства.</p>' + gkeyNote() +
         '<form class="add" data-form="join"><input name="code" autocomplete="off" placeholder="Ссылка-приглашение или 12 слов" aria-label="Ссылка-приглашение или 12 слов" required><button class="btn ghost">Присоединиться</button></form>';
     } else {
       h += '<p>Последняя синхронизация: ' + ago(RS.at) + '.</p>' +
         '<div class="row"><button type="button" class="btn" data-act="add-device">Добавить устройство</button><button type="button" class="btn ghost" data-act="sync-now">Синхронизировать</button></div>' +
+        '<div class="gkey"><h4>Вход через Google</h4>' + (UI.gsaved
+          ? '<p>Ключ семьи сохранён в Google: на других своих устройствах нажмите «Войти через Google» — QR-код не нужен.</p><button type="button" class="link" data-act="gkey-forget">Убрать ключ из Google</button>'
+          : '<p>Сохраните ключ семьи в своём Google-аккаунте — тогда на других своих устройствах можно войти в семью без QR-кода. Ключ ляжет в скрытую папку приложения на Google Диске: кто войдёт в ваш Google-аккаунт, сможет открыть данные семьи.</p>' +
+            '<button type="button" class="btn ghost" data-act="gkey-save"' + (UI.gkey === 'busy' ? ' disabled' : '') + '>Сохранить ключ в Google</button>') +
+        gkeyNote() + '</div>' +
         '<button type="button" class="link danger" data-act="family-leave">Отключить устройство от семьи</button>';
     }
     if (UI.err) h += '<p class="muted">' + esc(UI.err) + '</p>';
@@ -415,20 +455,35 @@
     if (k && check && await V.verify(k, check)) { FAM.key = k; famDecrypt(); } else if (k && check) { FAM.key = null; await store.set('famkey', null); }
   }
   function memberInitial(m) { return esc((String(m.name || '?').trim()[0] || '?').toUpperCase()); }
+  /* фото члена семьи — только JPEG data URL из своего же сжатия (toJpeg); всё прочее с релея не показываем */
+  var PHOTO_RE = /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/;
+  function memberPhoto(id) { var r = id && S.photos[id]; return r && PHOTO_RE.test(r.img || '') ? r.img : ''; }
+  function avatar(m, photo) {
+    var u = photo === undefined ? memberPhoto(m.id) : photo, c = MCOLORS.indexOf(m.color) >= 0 ? m.color : 'pear';
+    return u && PHOTO_RE.test(u) ? '<img class="ava ava-img" src="' + u + '" alt="" aria-hidden="true">' : '<span class="ava mc-' + c + '" aria-hidden="true">' + memberInitial(m) + '</span>';
+  }
+  /* строка «Фото» в окне члена семьи: FAM.photo — выбранное, но ещё не сохранённое (null — убрать) */
+  function photoRow(id) {
+    var m = (id && S.family[id]) || { id: '', name: '', color: 'pear' }, cur = FAM.photo !== undefined ? FAM.photo : memberPhoto(id);
+    return '<div class="mphoto">' + avatar(m, cur || '') +
+      '<label class="btn ghost">' + (cur ? 'Заменить фото' : 'Добавить фото') + '<input type="file" accept="image/*" hidden data-input="member-photo"></label>' +
+      (cur ? '<button type="button" class="link danger" data-act="member-photo-del">Убрать фото</button>' : '') + '</div>';
+  }
+  function refreshPhotoRow() { var f = document.querySelector('#modal form[data-form="member"]'), el = f && f.querySelector('.mphoto'); if (el) el.outerHTML = photoRow(f.getAttribute('data-id')); }
   function memberCard(m) {
-    var p = famPlain(m), c = MCOLORS.indexOf(m.color) >= 0 ? m.color : 'pear';
+    var p = famPlain(m);
     var body = !m.enc ? '<span class="sub">аллергии и вес не заполнены</span>'
       : !FAM.key ? '<span class="sub">' + ICO.lock + 'данные под семейным паролем</span>'
       : !p ? '<span class="sub">расшифровываю…</span>'
       : p.bad ? '<span class="sub danger">не расшифровывается этим паролем</span>'
       : '<span class="sub">' + (p.allergies ? 'аллергии: ' + esc(p.allergies) : 'аллергий нет') + '</span>' + (p.weight ? '<span class="sub">вес ' + esc(p.weight) + ' кг</span>' : '');
-    return '<li><button class="member" data-act="member-edit" data-id="' + esc(m.id) + '"><span class="ava mc-' + c + '" aria-hidden="true">' + memberInitial(m) + '</span>' +
+    return '<li><button class="member" data-act="member-edit" data-id="' + esc(m.id) + '">' + avatar(m) +
       '<span class="mtext"><span class="nm">' + esc(m.name || 'Без имени') + '</span>' + body + '</span></button></li>';
   }
   function viewFamily() {
     var salt = famMeta('fam_salt'), h = '<section class="box" id="family"><h3>Семья</h3>';
     if (!salt) {
-      h += '<p>Карточка члена семьи: имя видно на всех устройствах семьи и в таблице при обмене, а аллергии, вес и заметка шифруются семейным паролем. ' +
+      h += '<p>Карточка члена семьи: имя видно на всех устройствах семьи и в таблице при обмене, фото — только на устройствах семьи, а аллергии, вес и заметка шифруются семейным паролем. ' +
         'Пароль нигде не хранится: если его забыть, эти данные не восстановить. Сообщите его семье устно.</p>' +
         '<form class="add" data-form="fam-pass"><input name="p1" type="password" autocomplete="new-password" minlength="8" placeholder="Семейный пароль, от 8 знаков" aria-label="Семейный пароль" required>' +
         '<input name="p2" type="password" autocomplete="new-password" minlength="8" placeholder="Ещё раз" aria-label="Пароль ещё раз" required><button class="btn">Задать пароль</button></form>';
@@ -443,7 +498,9 @@
   }
   function memberEditor(id) {
     var m = id ? S.family[id] : null, p = m ? famPlain(m) || {} : {}, locked = !FAM.key;
-    modal('<form data-form="member" data-id="' + esc(id || '') + '"><h3>' + (m ? 'Член семьи' : 'Новый член семьи') + '</h3>' +
+    FAM.photo = undefined;
+    modal('<form data-form="member" data-id="' + esc(id || '') + '"><h3>' + (m ? 'Член семьи' : 'Новый член семьи') + '</h3>' + photoRow(id) +
+      '<p class="err" role="alert" hidden></p>' +
       '<label>Имя<input name="name" value="' + esc(m ? m.name : '') + '" autocomplete="off" required></label>' +
       '<fieldset class="colors"><legend>Цвет</legend>' + MCOLORS.map(function (c, i) {
         return '<label class="cl"><input type="radio" name="color" value="' + c + '"' + ((m ? m.color : 'pear') === c || (!m && i === 0) ? ' checked' : '') + '><span class="ava mc-' + c + '">' + (i + 1) + '</span></label>';
@@ -458,7 +515,7 @@
   function allergyPanel() {
     var rows = members().map(function (m) { var p = famPlain(m); return p && p.allergies ? { m: m, a: p.allergies } : null; }).filter(Boolean);
     return rows.length ? '<section class="panel"><h3>Аллергии в семье</h3><ul class="allergy-list">' + rows.map(function (r) {
-      return '<li><span class="ava mc-' + (MCOLORS.indexOf(r.m.color) >= 0 ? r.m.color : 'pear') + '" aria-hidden="true">' + memberInitial(r.m) + '</span><span><b>' + esc(r.m.name) + '</b><span class="sub">' + esc(r.a) + '</span></span></li>';
+      return '<li>' + avatar(r.m) + '<span><b>' + esc(r.m.name) + '</b><span class="sub">' + esc(r.a) + '</span></span></li>';
     }).join('') + '</ul></section>' : '';
   }
 
@@ -637,6 +694,8 @@
       '<label class="btn ghost">Загрузить JSON<input type="file" accept="application/json,.json" data-input="import" hidden></label>' +
       (UI.backup ? '<button class="btn ghost" data-act="export-backup">Данные до присоединения, ' + new Date(UI.backup).toLocaleDateString('ru-RU') + '</button>' : '') + '</div>' +
       '<p class="muted">Всё сохраняется на устройстве сразу после каждого изменения, даже без сети.</p></section>';
+    h += '<section class="box"><h3>О программе</h3><p>Меню, версия <b class="ver">' + esc(CFG.version || '—') + '</b></p><p class="muted">' +
+      (TAURI ? 'Приложение для Windows — обновляется само, когда выходит новая версия.' : 'Сайт — новая версия подтягивается при открытии.') + '</p></section>';
     return h;
   }
 
@@ -806,9 +865,12 @@
       case 'sheet-now': sheetNow(); break;
       case 'add-device': deviceModal(); break;
       case 'show-words': FK.toWords(FK.fromCode(FAMILY.code)).then(function (w) { b.outerHTML = '<p class="words">' + esc(w) + '</p>'; }); break;
-      case 'family-new': (async function () { await familyUse(FK.toCode(FK.newRoot())); await relayReset(); render(); syncNow(); deviceModal(); })(); break;
-      case 'family-leave': if (confirm('Отключить это устройство от семьи? Данные на устройстве останутся, обмен прекратится.')) (async function () { await familyUse(''); await relayReset(); setStatus('none'); render(); })(); break;
+      case 'family-new': (async function () { await familyUse(FK.toCode(FK.newRoot())); await relayReset(); UI.gsaved = false; UI.gkey = ''; lsSet('gkey', null); render(); syncNow(); deviceModal(); })(); break;
+      case 'family-leave': if (confirm('Отключить это устройство от семьи? Данные на устройстве останутся, обмен прекратится.')) (async function () { await familyUse(''); await relayReset(); UI.gsaved = false; UI.gkey = ''; lsSet('gkey', null); setStatus('none'); render(); })(); break;
       case 'sync-now': syncNow(); break;
+      case 'gkey-load': googleKey('gload'); break;
+      case 'gkey-save': googleKey('gsave'); break;
+      case 'gkey-forget': if (confirm('Убрать ключ семьи из Google? Данные семьи останутся, войти через Google станет нельзя.')) googleKey('gforget'); break;
       case 'login': login('select_account'); break;
       case 'logout': lsSet('token', null); SY.authed = false; saveSync();
         if (TAURI) { DESK.signed = false; invoke('google_logout'); } render(); break;
@@ -817,7 +879,8 @@
       case 'export': exportJson(S, 'menu-' + today()); break;
       case 'export-backup': store.get('backup').then(function (bk) { if (bk) exportJson(bk.S, 'menu-before-join-' + today()); }); break;
       case 'member-edit': memberEditor(id); break;
-      case 'member-del': { var md = S.family[id]; if (md && confirmSoft(b, 'Удалить')) { closeModal(); commit(function (c) { c.del('family', id); }); } break; }
+      case 'member-del': { var md = S.family[id]; if (md && confirmSoft(b, 'Удалить')) { closeModal(); commit(function (c) { c.del('family', id); c.del('photos', id); }); } break; }
+      case 'member-photo-del': FAM.photo = null; refreshPhotoRow(); break;
       case 'fam-forget': FAM.key = null; FAM.cache = {}; store.set('famkey', null); render(); break;
       case 'mode': { var mv = b.getAttribute('data-v'); lsSet('mode', mv === 'auto' ? null : mv); if (mv === 'auto') delete document.documentElement.dataset.mode; else document.documentElement.dataset.mode = mv; render(); break; }
       case 'pic-del': { var pk = b.getAttribute('data-kind'), pn = b.getAttribute('data-k'); delete IMG[imgKey(pk, pn)]; refreshPicRow(pk, pn); break; }
@@ -945,12 +1008,15 @@
         break;
       }
       case 'member': {
-        var mid = f.getAttribute('data-id') || uid('f'), patch = { name: g('name'), color: g('color') || 'pear' };
+        var mid = f.getAttribute('data-id') || uid('f'), patch = { name: g('name'), color: g('color') || 'pear' }, ph = FAM.photo;
         var data = FAM.key && fd.has('allergies') ? { allergies: g('allergies'), weight: g('weight').replace(',', '.'), note: g('note') } : null;
         closeModal();
         (async function () {
           if (data) { patch.enc = await V.seal(FAM.key, data, mid); FAM.cache[mid + '|' + patch.enc] = data; }
-          commit(function (c) { c.put('family', mid, patch); });
+          commit(function (c) {
+            c.put('family', mid, patch);
+            if (ph) c.put('photos', mid, { img: ph }); else if (ph === null) c.del('photos', mid);
+          });
         })();
         break;
       }
@@ -978,6 +1044,15 @@
   });
   document.addEventListener('change', function (e) {
     var t = e.target, di = t.getAttribute('data-input'), fl = t.files ? Array.prototype.slice.call(t.files) : [];
+    if (di === 'member-photo' && fl[0]) {
+      /* квадрат 160 px (≈10 КБ) — с запасом влезает в одну запись релея; если вышло тяжело — 112 px */
+      toJpeg(fl[0], 160, true).then(function (u) { return u.length > 40000 ? toJpeg(fl[0], 112, true) : u; })
+        .then(function (u) { FAM.photo = u; refreshPhotoRow(); }, function (er) {
+          var el = document.querySelector('#modal form[data-form="member"] .err');
+          if (el) { el.textContent = er && er.message === 'format' ? 'Этот формат фото не открывается. Подойдут JPEG, PNG или WebP.' : 'Не получилось загрузить фото'; el.hidden = false; }
+        });
+      return;
+    }
     if (di === 'pic' && fl[0]) {
       var kind = t.getAttribute('data-kind'), k = t.getAttribute('data-k');
       toJpeg(fl[0], 256, true).then(function (u) { IMG[imgKey(kind, k)] = u; refreshPicRow(kind, k); }, picError);
@@ -1013,7 +1088,7 @@
   async function joinFamily(code, fromLink) {
     if (code === FAMILY.code) return;
     var hasData = M.list(S, 'meals').length || M.list(S, 'pantry').length || M.list(S, 'family').length || M.list(S, 'shop').length || M.list(S, 'recipes').length;
-    var q = 'Присоединить это устройство к семье по ссылке?' + (fromLink ? ' Открывайте только ссылки от своих.' : '') +
+    var q = 'Присоединить это устройство к семье?' + (fromLink ? ' Открывайте только ссылки от своих.' : '') +
       (hasData || FAMILY.code ? ' Данные на этом устройстве будут заменены данными семьи; их копию можно будет скачать в «Ещё».' : '');
     if ((fromLink || hasData || FAMILY.code) && !confirm(q)) return;
     if (hasData) { UI.backup = Date.now(); await store.set('backup', { at: UI.backup, S: S }); }   // прежние данные можно скачать в «Ещё»
@@ -1031,6 +1106,7 @@
     UI.tab = lsGet('tab') || 'today'; if (!/^(today|menu|shop|home|recipes|more)$/.test(UI.tab)) UI.tab = 'today';
     IMG = (await store.get('imgs')) || {};
     var bk = await store.get('backup'); UI.backup = bk && bk.at;
+    UI.gsaved = !!lsGet('gkey');
     await famLoadKey();
     var code = await store.get('famcode'); if (code && FK.fromCode(code)) await familyUse(code);
     RS = (await store.get('relay')) || RS;
@@ -1040,7 +1116,10 @@
     render();
     if (TAURI && TAURI.updater) TAURI.updater.check().then(function (u) { if (u) { UI.update = u; render(); } }).catch(function () { });
     if (h && h.join) await joinFamily(FK.toCode(h.join), true);
-    if (h && h.login) { var ex = lsGet('exchange'); lsSet('exchange', null); if (h.login === 'ok' && ex) { UI.tab = 'more'; render(); sheetNow(); } }
+    if (h && h.login) {
+      var af = lsGet('after') || (lsGet('exchange') && 'sheet'); lsSet('after', null); lsSet('exchange', null);
+      if (h.login === 'ok' && af) { UI.tab = 'more'; render(); if (af === 'sheet') sheetNow(); else await googleKey(af, true); }
+    }
     if (FAMILY.keys) syncNow(); else setStatus('none');
   }
 

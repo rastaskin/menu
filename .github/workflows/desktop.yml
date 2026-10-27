@@ -36,6 +36,9 @@ jobs:
           if ('${{ github.ref_type }}' -eq 'tag') {
             $v = '${{ github.ref_name }}'.TrimStart('v')
             $c = $c -replace '"version":\s*"[^"]+"', ('"version": "' + $v + '"')
+            # версия в интерфейсе (web/config.js) должна совпадать с тегом
+            $cfg = Get-Content web/config.js -Raw -Encoding utf8
+            if ($cfg -notmatch ("version:\s*'" + [regex]::Escape($v) + "'")) { Write-Error "web/config.js: version не равна тегу $v"; exit 1 }
           }
           [IO.File]::WriteAllText((Resolve-Path $f), $c, [Text.UTF8Encoding]::new($false))
           Select-String -Path $f -Pattern '"version"|releases'

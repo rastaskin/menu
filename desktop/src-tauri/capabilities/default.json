@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Главное окно: релей синхронизации, вход в Google, Sheets API, обновления",
+  "description": "Главное окно: релей синхронизации, вход в Google, Sheets API, ключ семьи в Google Диске (appDataFolder), обновления",
   "windows": [
     "main"
   ],
@@ -12,6 +12,8 @@
       "identifier": "http:default",
       "allow": [
         { "url": "https://sheets.googleapis.com/*" },
+        { "url": "https://www.googleapis.com/drive/*" },
+        { "url": "https://www.googleapis.com/upload/drive/*" },
         { "url": "https://menu-relay.menu-relay.workers.dev/*" }
       ]
     },

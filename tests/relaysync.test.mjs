@@ -36,7 +36,7 @@ test('релей: два устройства сходятся, сервер в�
   assert.equal((await B.sync()).pushed, 0, 'полученное не отправляется обратно');
 
   const traffic = relay.seen.join('');
-  assert.doesNotMatch(traffic, /Овсянка|meals|Покупки|2026-10-27/);
+  assert.doesNotMatch(traffic, /Овсянка|"meals"|Покупки|2026-10-27/);   // в кавычках: буквы meals изредка складываются в base64 сами
 
   // правка на B, удаление на A — обе доходят
   M.put(B.S, 'meals', '2026-10-27/ужин', { text: 'Плов' }, Date.now() + 10);

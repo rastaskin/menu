@@ -15,7 +15,8 @@
     pantry: ['name', 'qty', 'place', 'until', 'note'],
     recipes: ['name', 'text'],
     rules: ['title', 'text'],
-    family: ['name', 'color', 'enc']   // enc — аллергии, вес, заметка в шифре AES-GCM (vault.js)
+    family: ['name', 'color', 'enc'],   // enc — аллергии, вес, заметка в шифре AES-GCM (vault.js)
+    photos: ['img']                     // фото члена семьи (id = id карточки), JPEG data URL; ходит через релей, в таблицу не попадает
   };
   var NAMES = Object.keys(COLS);
   var BOOL = { done: 1, bought: 1, skip: 1, moved: 1 };
