@@ -1,0 +1,81 @@
+# Установщик Windows (.exe) и latest.json для автообновления. Запуск по тегу v*, например v0.1.0.
+name: Desktop
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Тесты перед релизом
+        shell: bash
+        run: |
+          npm ci
+          npm test
+          npx playwright install --only-shell chromium
+          npm run test:e2e
+
+      - name: Версия из тега
+        shell: pwsh
+        run: |
+          $f = 'desktop/src-tauri/tauri.conf.json'
+          $c = Get-Content $f -Raw -Encoding utf8
+          if ('${{ github.ref_type }}' -eq 'tag') {
+            $v = '${{ github.ref_name }}'.TrimStart('v')
+            $c = $c -replace '"version":\s*"[^"]+"', ('"version": "' + $v + '"')
+          }
+          [IO.File]::WriteAllText((Resolve-Path $f), $c, [Text.UTF8Encoding]::new($false))
+          Select-String -Path $f -Pattern '"version"|releases'
+
+      - name: Секрет Desktop-клиента Google только в сборку
+        shell: pwsh
+        env:
+          SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
+        run: |
+          if ($env:SECRET) {
+            Add-Content -Path web/config.js -Encoding utf8 -Value ("window.MCONFIG.desktopClientSecret = '" + $env:SECRET + "';")
+            Write-Host 'Секрет добавлен в сборку'
+          } else { Write-Host 'Секрет не задан: вход в Google в настольной версии не заработает' }
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec  # stable
+
+      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2
+        with:
+          workspaces: 'desktop/src-tauri -> target'
+
+      - name: Tauri CLI
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+
+      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5  # v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: desktop
+          tauriScript: npm run tauri
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: 'Меню ${{ github.ref_name }}'
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          # GitHub вырезает кириллицу из имён файлов, и tauri-action не находит подписи для latest.json
+          assetNamePattern: 'Menu_[version]_[arch][setup][ext]'
+          releaseBody: |
+            Установка на Windows: скачайте `Menu_*_x64-setup.exe` ниже и запустите.
+            Установщик не подписан сертификатом, поэтому Windows покажет «Windows защитила ваш компьютер».
+            Нажмите «Подробнее» → «Выполнить в любом случае». Дальше приложение обновляется само.

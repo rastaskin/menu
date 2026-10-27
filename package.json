@@ -1,0 +1,12 @@
+{
+  "name": "menu",
+  "private": true,
+  "description": "Меню на двоих: PWA с синхронизацией через Google Таблицу",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "test:e2e": "node --test tests/e2e/*.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  }
+}

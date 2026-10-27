@@ -1,0 +1,8 @@
+node_modules/
+tests/e2e/*.png
+*.log
+.DS_Store
+*.tgz
+*.lnk
+.hallmark/
+CLAUDE.local.md
