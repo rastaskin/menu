@@ -387,6 +387,7 @@
     '6. Дома → где: fridge (холодильник), freezer (морозилка), shelf (шкаф и полки).',
     '7. Дни → события: через «;», префиксы a: и g: — занятость членов семьи (например «a:Учёба 9:00–15:30»), z: ужин из заготовки, h: праздник, o: прочее.',
     '8. Новый период: добавь строки в «Дни» и «Меню» с новыми датами, покупки — с новым номером недели. Приложение само сгруппирует дни по 7.',
+    '9. Рецепты → как готовить: Markdown (## заголовки, **жирный**, - список, 1. шаги). Продукты — блок «## Продукты» со строками «- продукт — сколько», по ним приложение считает, что есть дома. До 15 000 знаков.',
     '',
     'НЕ ТРОГАТЬ:',
     '• столбец «данные (зашифровано)» на листе «Семья» — это шифр;',
@@ -665,7 +666,7 @@
     return '<button class="btn wide" data-act="recipe-new">' + ICO.plus + 'Новый рецепт</button><div class="cards">' + li.map(function (r) {
       var st = M.recipeStock(S, r.text, today()), n = st.filter(function (g) { return g.home.length; }).length, have = '';
       if (st.length) have = '<span class="have' + (n === st.length ? ' all' : '') + '">' + (n === st.length ? ICO.check + 'Всё есть дома' : 'Дома ' + n + ' из ' + st.length) + '</span>';
-      return '<button class="rc" data-act="recipe-edit" data-id="' + esc(r.id) + '">' + pic('r', r.name, r.name, 'fi-m') + '<span><b>' + esc(r.name) + '</b>' + have + '<p>' + esc(r.text || '') + '</p></span></button>';
+      return '<button class="rc" data-act="recipe-open" data-id="' + esc(r.id) + '" aria-haspopup="dialog">' + pic('r', r.name, r.name, 'fi-m') + '<span><b>' + esc(r.name) + '</b>' + have + '<p>' + esc(MD.plain(r.text)) + '</p></span></button>';
     }).join('') + '</div>';
   }
   /* Список продуктов рецепта с отметкой «есть дома» — в карточке рецепта. */
@@ -783,24 +784,42 @@
       '<div class="row"><button class="btn">Сохранить</button><button type="button" class="btn ghost" data-act="close">Отмена</button>' +
       '<button type="button" class="link danger" data-act="pantry-gone" data-id="' + esc(id) + '">Закончилось</button></div></form>');
   }
-  /* карточка рецепта; meal = {date, slot, name} — открыта из «Недели»: подпись дня и ссылка на окно блюда */
+  /* Карточка рецепта: просмотр (recipeView) и правка (recipeEditor). «Как готовить» — Markdown (md.js).
+     UI.rmeal = {date, slot, name} — карточка открыта из «Недели»: подпись дня и ссылка на окно блюда. */
+  var MD = window.MMd, RECIPE_MAX = 15000;   // одна запись релея — до 64 КБ шифра; 15 000 знаков с запасом
+  function mealFrom(meal, has) { return meal ? '<p class="from">' + esc(slotLabel(meal.slot)) + ', ' + wd(meal.date).toLowerCase() + ' ' + dm(meal.date) + (has ? '' : ' — рецепта для этого блюда пока нет') + '</p>' : ''; }
+  function mealLink(meal) { return meal ? '<button type="button" class="link" data-act="meal-edit" data-date="' + meal.date + '" data-slot="' + esc(meal.slot) + '">Изменить блюдо в меню</button>' : ''; }
+  function recipeView(id, meal) {
+    var r = S.recipes[id];
+    UI.rmeal = meal || null;
+    if (!r) return recipeEditor('', meal);
+    modal('<article class="recipe"><div class="rhead">' + pic('r', r.name, r.name, 'fi-xl') + '<div><p class="kicker">Рецепт</p><h3>' + esc(r.name) + '</h3>' + mealFrom(meal, true) + '</div></div>' +
+      recipeStockHtml(r.text) +
+      (r.text ? '<div class="md">' + MD.html(r.text) + '</div>' : '<p class="muted">Как готовить — пока не написано.</p>') +
+      '<div class="row"><button type="button" class="btn" data-act="recipe-edit" data-id="' + esc(id) + '">Редактировать</button>' +
+      '<button type="button" class="btn ghost" data-act="close">Закрыть</button>' + mealLink(meal) + '</div></article>');
+  }
   function recipeEditor(id, meal) {
-    var r = id ? S.recipes[id] : null, at = meal ? ' data-date="' + meal.date + '" data-slot="' + esc(meal.slot) + '"' : '';
-    modal('<form data-form="recipe" data-id="' + esc(id || '') + '"><h3>' + (r ? 'Рецепт' : 'Новый рецепт') + '</h3>' +
-      (meal ? '<p class="from">' + esc(slotLabel(meal.slot)) + ', ' + wd(meal.date).toLowerCase() + ' ' + dm(meal.date) + (r ? '' : ' — рецепта для этого блюда пока нет') + '</p>' : '') +
+    var r = id ? S.recipes[id] : null;
+    if (meal !== undefined) UI.rmeal = meal || null;
+    meal = UI.rmeal;
+    modal('<form data-form="recipe" data-id="' + esc(id || '') + '"><h3>' + (r ? 'Рецепт: правка' : 'Новый рецепт') + '</h3>' + mealFrom(meal, !!r) +
       (r && r.name ? picEditor('r', r.name) : '') +
-      '<label>Название<input name="name" value="' + esc(r ? r.name : meal ? meal.name : '') + '" required></label>' + (r ? recipeStockHtml(r.text) : '') +
-      '<label>Как готовить<textarea name="text" rows="6">' + esc(r ? r.text || '' : '') + '</textarea></label>' +
-      '<div class="row"><button class="btn">Сохранить</button><button type="button" class="btn ghost" data-act="close">Отмена</button>' +
-      (meal ? '<button type="button" class="link" data-act="meal-edit"' + at + '>Изменить блюдо в меню</button>' : '') +
+      '<label>Название<input name="name" value="' + esc(r ? r.name : meal ? meal.name : '') + '" required></label>' +
+      '<label>Как готовить<textarea name="text" rows="10" maxlength="' + RECIPE_MAX + '">' + esc(r ? r.text || '' : '') + '</textarea></label>' +
+      '<div class="mdbar"><span class="muted">Markdown: # заголовок, **жирный**, *курсив*, - список, 1. шаги</span>' +
+      '<label class="btn ghost">Загрузить .md<input type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden data-input="recipe-md"></label></div>' +
+      '<p class="err" role="alert" hidden></p>' +
+      '<div class="row"><button class="btn">Сохранить</button><button type="button" class="btn ghost" data-act="recipe-cancel" data-id="' + esc(id || '') + '">Отмена</button>' +
+      mealLink(meal) +
       (r ? '<button type="button" class="link danger" data-act="recipe-del" data-id="' + esc(id) + '">Удалить</button>' : '') + '</div></form>');
   }
   /* блюдо из «Недели» открывает ту же карточку, что и в «Рецептах»; рецепта нет — новая карточка с названием блюда */
   function mealOpen(date, slot) {
     var m = mealAt(date, slot);
     if (!m || !m.text) return mealEditor(date, slot);
-    var r = M.recipeFor(S, m.text);
-    recipeEditor(r ? r.id : '', { date: date, slot: slot, name: m.text });
+    var r = M.recipeFor(S, m.text), meal = { date: date, slot: slot, name: m.text };
+    if (r) recipeView(r.id, meal); else recipeEditor('', meal);
   }
   function cookEditor(date) {
     var d = dayRec(date) || {};
@@ -841,7 +860,7 @@
   document.addEventListener('click', function (e) {
     /* в приложении на ПК внешние ссылки открываются в системном браузере */
     var ln = TAURI && e.target.closest('a[href^="http"]');
-    if (ln) { e.preventDefault(); TAURI.opener.openUrl(ln.href); return; }
+    if (ln) { e.preventDefault(); Promise.resolve(TAURI.opener.openUrl(ln.href)).catch(function () { }); return; }   // разрешены только адреса Google (capabilities); прочие ссылки на ПК молча не открываются
     var b = e.target.closest('[data-act]'); if (!b) return;
     var a = b.getAttribute('data-act'), id = b.getAttribute('data-id'), date = b.getAttribute('data-date'), slot = b.getAttribute('data-slot');
     switch (a) {
@@ -870,8 +889,10 @@
       }); break;
       case 'pantry-edit': pantryEditor(id); break;
       case 'pantry-gone': { var p = S.pantry[id]; if (p && confirmSoft(b)) { closeModal(); commit(function (c) { c.del('pantry', id); }); } break; }
-      case 'recipe-new': recipeEditor(''); break;
+      case 'recipe-new': recipeEditor('', null); break;
+      case 'recipe-open': recipeView(id, null); break;
       case 'recipe-edit': recipeEditor(id); break;
+      case 'recipe-cancel': if (id && S.recipes[id]) recipeView(id, UI.rmeal); else closeModal(); break;
       case 'recipe-del': closeModal(); commit(function (c) { c.del('recipes', id); }); break;
       case 'sync-tap': if (!FAMILY.keys) { UI.tab = 'more'; render(); } else syncNow(); break;
       case 'sheet-now': sheetNow(); break;
@@ -998,7 +1019,13 @@
       case 'shop-add': commit(function (c) { c.put('shop', uid('s'), { name: g('name'), qty: g('qty'), price: g('price'), cat: g('cat'), week: +f.getAttribute('data-w') || 1 }); }); break;
       case 'pantry': { var pid = f.getAttribute('data-id'); closeModal(); commit(function (c) { c.put('pantry', pid, { name: g('name'), qty: g('qty'), place: g('place'), until: g('until'), note: g('note') }); }); break; }
       case 'pantry-add': commit(function (c) { c.put('pantry', uid('p'), { name: g('name'), qty: g('qty'), place: g('place'), until: g('until') }); }); break;
-      case 'recipe': { var rid = f.getAttribute('data-id') || uid('r'); closeModal(); commit(function (c) { c.put('recipes', rid, { name: g('name'), text: g('text') }); }); break; }
+      case 'recipe': {
+        var rid = f.getAttribute('data-id') || uid('r'), rtext = String(fd.get('text') || '').replace(/\s+$/, '');
+        if (rtext.length > RECIPE_MAX) { var rer = f.querySelector('.err'); rer.textContent = 'Слишком длинный рецепт: до ' + RECIPE_MAX.toLocaleString('ru-RU') + ' знаков.'; rer.hidden = false; break; }
+        closeModal(); commit(function (c) { c.put('recipes', rid, { name: g('name'), text: rtext }); });
+        recipeView(rid, UI.rmeal);   // после сохранения — снова просмотр
+        break;
+      }
       case 'fam-pass': {
         if (g('p1') !== g('p2')) { alert('Пароли не совпадают'); break; }
         if (g('p1').length < 8) { alert('Пароль — от 8 знаков'); break; }
@@ -1056,6 +1083,19 @@
   });
   document.addEventListener('change', function (e) {
     var t = e.target, di = t.getAttribute('data-input'), fl = t.files ? Array.prototype.slice.call(t.files) : [];
+    if (di === 'recipe-md' && fl[0]) {
+      /* .md → поле «Как готовить»; первая строка «# Название» заполняет пустое название */
+      var rf = t.closest('form'), rer2 = rf.querySelector('.err');
+      if (fl[0].size > RECIPE_MAX * 4) { rer2.textContent = 'Файл слишком большой: рецепт — до ' + RECIPE_MAX.toLocaleString('ru-RU') + ' знаков.'; rer2.hidden = false; t.value = ''; return; }
+      fl[0].text().then(function (txt) {
+        txt = txt.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+        if (txt.length > RECIPE_MAX) { rer2.textContent = 'В файле больше ' + RECIPE_MAX.toLocaleString('ru-RU') + ' знаков — сократите рецепт.'; rer2.hidden = false; return; }
+        var nm = rf.querySelector('[name="name"]'), h1 = /^#\s+(.+?)\s*#*\s*$/m.exec(txt.split('\n').filter(function (l) { return l.trim(); })[0] || '');
+        if (h1 && !nm.value.trim()) { nm.value = h1[1]; txt = txt.replace(/^\s*#\s+.+\n?/, ''); }
+        rf.querySelector('[name="text"]').value = txt.trim(); rer2.hidden = true; t.value = '';
+      }, function () { rer2.textContent = 'Не удалось прочитать файл'; rer2.hidden = false; });
+      return;
+    }
     if (di === 'member-photo' && fl[0]) {
       /* квадрат 160 px (≈10 КБ) — с запасом влезает в одну запись релея; если вышло тяжело — 112 px */
       toJpeg(fl[0], 160, true).then(function (u) { return u.length > 40000 ? toJpeg(fl[0], 112, true) : u; })

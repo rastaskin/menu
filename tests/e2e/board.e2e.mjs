@@ -24,20 +24,36 @@ test('неделя — доска: перенос мышью и пальцем �
     await p.waitForSelector('[data-board] .col');
     await p.evaluate(() => { document.querySelector('[data-board]').scrollLeft = 0; });   // доска открывается на сегодняшнем дне — начинаем с первого
 
-    // нажатие на блюдо — та же карточка, что в «Рецептах»; нет рецепта — новая с названием блюда
+    // нажатие на блюдо — та же карточка, что в «Рецептах»: просмотр, «Редактировать», текст в Markdown
     await p.click(place(D2, 'завтрак') + ' .mtxt');
-    assert.equal(await p.textContent('#modal h3'), 'Рецепт');
-    assert.equal(await p.inputValue('#modal [name="name"]'), 'Кейран-ччим');
+    assert.equal(await p.textContent('#modal .recipe h3'), 'Кейран-ччим');
     assert.match(await p.textContent('#modal .from'), /Завтрак, ср 28\.10/);
+    await p.click('#modal [data-act="recipe-edit"]');
+    assert.equal(await p.inputValue('#modal [name="name"]'), 'Кейран-ччим');
+    await p.click('#modal [data-act="recipe-cancel"]');
+    await p.waitForSelector('#modal .recipe', { timeout: 3000 });   // «Отмена» — обратно к просмотру
+    await p.click('#modal [data-act="recipe-edit"]');
+    await p.fill('#modal [name="text"]', '## Продукты\n- **Яйца** — 3 шт\n\n## Как готовить\n1. Взбить с водой\n2. На пару *4 мин*\n\n<script>alert(1)</script>');
+    await p.click('#modal button.btn:has-text("Сохранить")');
+    await p.waitForSelector('#modal .recipe .md');
+    assert.equal(await p.locator('#modal .md ol li').count(), 2);
+    assert.equal(await p.textContent('#modal .md b'), 'Яйца');
+    assert.equal(await p.textContent('#modal .md i'), '4 мин');
+    assert.equal(await p.locator('#modal .md script').count(), 0, 'чужой код показан текстом');
+    assert.match(await p.textContent('#modal .stock h4'), /Продукты: дома \d+ из 1/, 'продукты из Markdown считаются');
     await p.waitForTimeout(600); await p.screenshot({ path: 'tests/e2e/shot-week-recipe.png' });
     await p.click('#modal [data-act="close"].btn');
+
+    // рецепта нет — новая карточка с названием блюда; текст можно загрузить из .md
     await p.click(place(D1, 'перекус') + ' .mtxt');
     assert.equal(await p.textContent('#modal h3'), 'Новый рецепт');
     assert.equal(await p.inputValue('#modal [name="name"]'), 'Кефир + яблоко');
-    await p.fill('#modal [name="text"]', 'Кефир налить, яблоко нарезать.');
+    await p.setInputFiles('#modal [data-input="recipe-md"]', { name: 'kefir.md', mimeType: 'text/markdown', buffer: Buffer.from('\uFEFF# Кефир с яблоком\r\n\r\n- кефир\r\n- яблоко\r\n') });
+    await p.waitForFunction(() => document.querySelector('#modal [name="text"]').value.startsWith('# Кефир с яблоком'));
     await p.click('#modal button.btn:has-text("Сохранить")');
-    await p.click(place(D1, 'перекус') + ' .mtxt');
-    assert.equal(await p.textContent('#modal h3'), 'Рецепт', 'теперь у блюда есть рецепт');
+    await p.waitForSelector('#modal .recipe');
+    assert.equal(await p.textContent('#modal .recipe h3'), 'Кефир + яблоко');
+    assert.equal(await p.textContent('#modal .md h4'), 'Кефир с яблоком');
     await p.click('#modal [data-act="meal-edit"]');
     assert.equal(await p.inputValue('#modal textarea[name="text"]'), 'Кефир + яблоко', 'окно блюда открылось из карточки рецепта');
     await p.click('#modal [data-act="close"].btn');
@@ -92,6 +108,14 @@ test('неделя — доска: перенос мышью и пальцем �
     await p.waitForFunction(([d]) => Object.values(window.__menu.S.meals).some((x) => x.date === d && x.slot === 'перекус' && x.text === 'Творог с ягодами'), [D2]);
     assert.equal(await meal(p, D1, 'полдник'), e);
     await p.screenshot({ path: 'tests/e2e/shot-board-desktop.png' });
+
+    // «Рецепты»: превью без значков разметки, нажатие — просмотр
+    await p.click('.tabs [data-tab="recipes"]');
+    const prev = await p.textContent('.rc:has-text("Кейран-ччим") p');
+    assert.doesNotMatch(prev, /##|\*\*/); assert.match(prev, /Взбить с водой/);
+    await p.click('.rc:has-text("Кейран-ччим")');
+    await p.waitForSelector('#modal .recipe [data-act="recipe-edit"]');
+    await p.click('#modal [data-act="close"].btn');
 
     // «Дома»: форма добавления — первой, над поиском
     await p.click('.tabs [data-tab="home"]');
