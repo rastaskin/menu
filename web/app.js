@@ -630,7 +630,7 @@
       '<section class="sum"><div class="sum-top">' + (plan ? '<b>' + rub(Math.max(0, plan - got)) + '</b><span>осталось из ' + rub(plan) + '</span>'
         : '<b>' + Math.max(0, n - nGot) + '</b><span>осталось купить из ' + n + '</span>') + '</div>' +
       '<div class="bar" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100"><i style="transform:scaleX(' + (pct / 100) + ')"></i></div>' +
-      '<p>Куплено ' + nGot + ' из ' + n + ' на ' + rub(got) + '</p>' +
+      '<p>Куплено ' + nGot + ' из ' + n + (got ? ' на ' + rub(got) : '') + '</p>' +
       (toMove ? '<button class="btn wide" data-act="move-home">Купленное → Дома (' + toMove + ')</button>' : '') + '</section>' +
       addShopForm(w) + body;
   }
