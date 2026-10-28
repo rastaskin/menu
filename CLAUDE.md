@@ -30,6 +30,8 @@ npm test            # модель, кодек, ключи семьи, QR, ре�
 npm run test:e2e    # Playwright с поддельными релеем и Sheets API: правки, офлайн, второе устройство по ссылке, семья, смена семьи во время синхронизации, доска недели (мышь и касание через CDP), ключ семьи в Google Диске и фото семьи (поддельный Drive), карточка рецепта с Markdown и загрузкой .md, ПК (подмена __TAURI__)
 ```
 
+Снимки для README: `node tools/screenshots.mjs` → `docs/screenshots/` (пример `tools/seed.json`, дата 29.10.2026); после заметных изменений интерфейса — переснять.
+
 Дизайн: `node ~/.claude/skills/hallmark/scripts/sloplint.mjs web --genre playful --scope app --render` (Hallmark; CHROME_PATH — путь к Edge или Chrome).
 
 ## Сборка и релиз
