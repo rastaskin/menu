@@ -39,6 +39,7 @@ npm run test:e2e    # Playwright с поддельными релеем и Sheet
 
 - Сайт: пуш в `main` → тесты → деплой `web/`.
 - Релей: `cd relay && npx wrangler deploy` (вручную, из аккаунта Cloudflare владельца).
+- Копия кода: после выпуска — `npm run backup` (`tools/backup.mjs`: git bundle со всей историей и `CLAUDE.local.md`, 10 последних; папка — аргумент или `MENU_BACKUP_DIR`). Восстановить: `git clone <файл>.bundle`.
 - ПК: тег `v*` → `.github/workflows/desktop.yml` → `Menu_*_x64-setup.exe` + `latest.json`. Секреты репозитория: `GOOGLE_DESKTOP_CLIENT_SECRET`, `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Сторонние actions закреплены по SHA.
 
 ## Правила
