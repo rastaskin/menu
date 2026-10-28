@@ -160,6 +160,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![oauth_listen, google_exchange, google_refresh, google_signed_in, google_logout])
         .run(tauri::generate_context!())

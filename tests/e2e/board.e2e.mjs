@@ -33,14 +33,19 @@ test('неделя — доска: перенос мышью и пальцем �
     await p.click('#modal [data-act="recipe-cancel"]');
     await p.waitForSelector('#modal .recipe', { timeout: 3000 });   // «Отмена» — обратно к просмотру
     await p.click('#modal [data-act="recipe-edit"]');
-    await p.fill('#modal [name="text"]', '## Продукты\n- **Яйца** — 3 шт\n\n## Как готовить\n1. Взбить с водой\n2. На пару *4 мин*\n\n<script>alert(1)</script>');
+    assert.equal(await p.inputValue('#modal [name="portions"]'), '2', 'порции из первой строки рецепта');
+    await p.fill('#modal [name="products"]', '**Яйца** — 3 шт');
+    await p.fill('#modal [name="text"]', '1. Взбить с водой\n2. На пару *4 мин*\n\n<script>alert(1)</script>');
     await p.click('#modal button.btn:has-text("Сохранить")');
     await p.waitForSelector('#modal .recipe .md');
     assert.equal(await p.locator('#modal .md ol li').count(), 2);
-    assert.equal(await p.textContent('#modal .md b'), 'Яйца');
     assert.equal(await p.textContent('#modal .md i'), '4 мин');
     assert.equal(await p.locator('#modal .md script').count(), 0, 'чужой код показан текстом');
     assert.match(await p.textContent('#modal .stock h4'), /Продукты: дома \d+ из 1/, 'продукты из Markdown считаются');
+    assert.match(await p.textContent('#modal .stock'), /Яйца — 3 шт/);
+    assert.match(await p.evaluate(() => Object.values(window.__menu.S.recipes).find((r) => r.name === 'Кейран-ччим').text), /^2 порции · 15 минут\n\n## Продукты\n- \*\*Яйца\*\* — 3 шт\n\n## Как готовить\n1\./);
+    await p.click('#modal [data-act="rport"][data-d="1"]');   // 3 порции вместо 2 — количества ×1,5
+    assert.match(await p.textContent('#modal .stock'), /Яйца — 4 ½ шт/);
     await p.waitForTimeout(600); await p.screenshot({ path: 'tests/e2e/shot-week-recipe.png' });
     await p.click('#modal [data-act="close"].btn');
 

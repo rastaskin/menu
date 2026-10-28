@@ -10,7 +10,7 @@
   var COLS = {
     meta: ['value'],
     days: ['date', 'wd', 'tags', 'cook'],
-    meals: ['date', 'slot', 'text', 'done'],
+    meals: ['date', 'slot', 'text', 'done', 'recipe', 'time', 'prep'],   // recipe — id рецептов через запятую, prep — из заготовки
     shop: ['week', 'cat', 'name', 'qty', 'price', 'bought', 'skip', 'moved', 'key'],
     pantry: ['name', 'qty', 'place', 'until', 'note'],
     recipes: ['name', 'text'],
@@ -19,7 +19,7 @@
     photos: ['img']                     // фото члена семьи (id = id карточки), JPEG data URL; ходит через релей, в таблицу не попадает
   };
   var NAMES = Object.keys(COLS);
-  var BOOL = { done: 1, bought: 1, skip: 1, moved: 1 };
+  var BOOL = { done: 1, bought: 1, skip: 1, moved: 1, prep: 1 };
   var TOMB_TTL = 180 * 86400000;   // пометка об удалении старше этого стирается (relay.js, sheets.js)
   var NUM = { price: 1, week: 1 };
 
@@ -174,9 +174,9 @@
       if (/^как готовить/i.test(t)) { on = false; return; }
       if (!on || !/^[—–-]\s/.test(t)) return;
       t.replace(/^[—–-]\s+/, '').split(/,\s*(?=[^,—]+\s—\s)/).forEach(function (seg) {
-        var name = seg.split(' — ')[0].replace(/\([^)]*\)?/g, ' ').trim(), n = norm(name);
+        var parts = seg.split(' — '), name = parts[0].replace(/\([^)]*\)?/g, ' ').trim(), n = norm(name);
         if (!n || STAPLE.test(n) || NOFOOD.test(n)) return;
-        out.push({ name: name, alts: name.split(/\s+или\s+/).map(function (a) { return a.trim(); }).filter(Boolean) });
+        out.push({ name: name, qty: parts.slice(1).join(' — ').trim(), alts: name.split(/\s+или\s+/).map(function (a) { return a.trim(); }).filter(Boolean) });
       });
     });
     return out;
@@ -222,7 +222,7 @@
   var api = {
     COLS: COLS, NAMES: NAMES, SLOTS: SLOTS, TOMB_TTL: TOMB_TTL, blank: blank, normalize: normalize, clean: clean, cast: cast,
     put: put, del: del, merge: merge, equal: equal, clone: clone, list: list, stable: stable,
-    norm: norm, productKey: productKey, pantryMatches: pantryMatches, ingredients: ingredients, recipeStock: recipeStock, recipeFor: recipeFor, okId: okId
+    norm: norm, words: words, stem: stem, pantryFor: pantryFor, productKey: productKey, pantryMatches: pantryMatches, ingredients: ingredients, recipeStock: recipeStock, recipeFor: recipeFor, okId: okId
   };
   if (typeof module === 'object' && module.exports) module.exports = api; else root.MModel = api;
 })(typeof self !== 'undefined' ? self : this);

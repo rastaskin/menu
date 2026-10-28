@@ -45,7 +45,7 @@ test('приложение: таблица по кнопке, семья чер�
     await ctx.addInitScript(() => { localStorage.setItem('menu.token', JSON.stringify({ v: 'tok', exp: Date.now() + 3600e3 })); });
     const p = await ctx.newPage(); p.on('pageerror', (e) => errors.push(String(e)));
     await p.goto(base);
-    assert.match(await p.textContent('[data-sync]'), /Семья не настроена/);
+    assert.equal(await p.getAttribute('[data-sync]', 'hidden'), '', 'без семьи плашки синхронизации нет');
 
     // разовый обмен с таблицей: данные приходят на устройство
     await p.click('.tabs [data-tab="more"]');
@@ -156,8 +156,8 @@ test('приложение: таблица по кнопке, семья чер�
     const p3 = await ctx3.newPage(); p3.on('pageerror', (e) => errors.push(String(e)));
     p3.on('dialog', (d) => d.dismiss());
     await p3.goto(base + link.slice(link.indexOf('#')));
-    await p3.waitForSelector('[data-sync]');
-    assert.match(await p3.textContent('[data-sync]'), /Семья не настроена/);
+    await p3.waitForSelector('[data-sync]', { state: 'attached' });
+    assert.equal(await p3.getAttribute('[data-sync]', 'hidden'), '', 'семья не подключилась');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); srv.close(); }
 });

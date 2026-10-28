@@ -8,7 +8,7 @@
   var M = (typeof module === 'object' && module.exports) ? require('./model.js') : root.MModel;
 
   var SHEETS = [
-    { col: 'meals', title: 'Меню', head: [['id', 'id'], ['date', 'дата'], ['slot', 'приём'], ['text', 'блюдо'], ['done', 'съели'], ['_u', '_u']] },
+    { col: 'meals', title: 'Меню', head: [['id', 'id'], ['date', 'дата'], ['slot', 'приём'], ['text', 'блюдо'], ['done', 'съели'], ['recipe', 'рецепт'], ['time', 'время'], ['prep', 'из заготовки'], ['_u', '_u']] },
     { col: 'days', title: 'Дни', head: [['id', 'id'], ['date', 'дата'], ['wd', 'день'], ['tags', 'события'], ['cook', 'готовка'], ['_u', '_u']] },
     { col: 'shop', title: 'Покупки', head: [['id', 'id'], ['week', 'неделя'], ['cat', 'раздел'], ['name', 'продукт'], ['qty', 'количество'], ['price', 'цена'], ['bought', 'куплено'], ['skip', 'есть дома'], ['moved', 'перенесено домой'], ['key', 'ключ'], ['_u', '_u']] },
     { col: 'pantry', title: 'Дома', head: [['id', 'id'], ['name', 'продукт'], ['qty', 'количество'], ['place', 'где'], ['until', 'годен до'], ['note', 'заметка'], ['_u', '_u']] },

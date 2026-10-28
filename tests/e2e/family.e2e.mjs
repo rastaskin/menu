@@ -35,6 +35,9 @@ test('семья: аллергии шифруются, в таблице тол�
     await p.fill('form[data-form="fam-pass"] [name="p1"]', 'семейный пароль 1');
     await p.fill('form[data-form="fam-pass"] [name="p2"]', 'семейный пароль 1');
     await p.click('form[data-form="fam-pass"] button');
+    await p.waitForSelector('form[data-form="fam-pass"] .err:has-text("пароль записан")');   // без отметки «записан» пароль не задаётся
+    await p.check('form[data-form="fam-pass"] [name="saved"]');
+    await p.click('form[data-form="fam-pass"] button');
     await p.waitForSelector('[data-act="fam-forget"]', { timeout: 30000 });
     await p.click('#family [data-act="member-edit"][data-id=""]');
     await p.fill('#modal [name="name"]', 'Член семьи');
