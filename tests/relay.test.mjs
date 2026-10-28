@@ -77,3 +77,16 @@ test('релей: просьба стереть запись', async () => {
   assert.deepEqual(all.items.map((i) => i.k), [K(2)]);
   assert.equal((await push(r, [{ k: 'xyz', drop: true }])).status, 400);
 });
+
+test('релей: закрытие семьи при смене ключа — записи стёрты, дальше 410', async () => {
+  const r = relay();
+  assert.equal((await r(`/v1/${FID}/close`, { method: 'POST', headers: auth() })).status, 404, 'нечего закрывать');
+  await push(r, [{ k: K(1), ct: CT }, { k: K(2), ct: CT }]);
+  assert.equal((await r(`/v1/${FID}/close`, { method: 'POST', headers: auth('c'.repeat(43)) })).status, 403, 'чужой пропуск не закрывает');
+  assert.equal((await r(`/v1/${FID}/close`, { method: 'GET', headers: auth() })).status, 405);
+  assert.equal((await r(`/v1/${FID}/close`, { method: 'POST', headers: auth() })).status, 200);
+  assert.equal((await r(`/v1/${FID}/pull?since=0`, { headers: auth() })).status, 410);
+  assert.equal((await push(r, [{ k: K(3), ct: CT }])).status, 410, 'старое устройство не может снова залить данные');
+  assert.equal((await r(`/v1/${FID}/close`, { method: 'POST', headers: auth() })).status, 410);
+  assert.equal((await r(`/v1/${FID}/pull?since=0`, { headers: auth('c'.repeat(43)) })).status, 403);
+});

@@ -244,16 +244,17 @@
   /* FAMILY.gen растёт при каждой смене семьи: проход синхронизации, начатый для прежней семьи, свой результат выбрасывает */
   var FK = window.MFamily, RL = window.MRelay, FAMILY = { code: '', keys: null, gen: 0 }, RS = { seq: 0, sent: {}, at: 0 };
   async function familyUse(code) {
-    FAMILY.gen++;
+    FAMILY.gen++; UI.gone = false;
     FAMILY.code = code || ''; FAMILY.keys = code ? await FK.derive(FK.fromCode(code)) : null;
     await store.set('famcode', code || null);
   }
   async function relayReset() { RS = { seq: 0, sent: {}, at: 0 }; await store.set('relay', RS); }
   function scheduleSync(ms) { clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, ms == null ? 1500 : ms); }
   function setStatus(s, err) { UI.status = s; UI.err = err || ''; var el = document.querySelector('[data-sync]'); if (el) el.outerHTML = syncChip(); }
-  async function syncNow() {
+  async function syncNow(force) {
     if (syncing) { again = true; return; }
     if (!FAMILY.keys) return setStatus('none');
+    if (UI.gone && force !== true) return setStatus('gone');   // ключ сменили: релей этой семьи закрыт, не стучимся зря
     if (!CFG.relayUrl) return setStatus('error', 'В этой сборке не указан адрес релея');
     if (!navigator.onLine) return setStatus('offline');
     syncing = true; setStatus('sync');
@@ -271,8 +272,10 @@
       if (editSeq === seq) SY.dirty = false;
       await saveSync(); setStatus('ok');
       if (res.changed) { render(); famDecrypt(); }
+      closeOld();
     } catch (e) {
       if (e.stale) again = true;
+      else if (e.status === 410) { UI.gone = true; setStatus('gone'); render(); }
       else if (e.status === 401 || e.status === 403) setStatus('denied');
       else if (e.status === 429) setStatus('error', 'Релей просит подождать — повторю позже');
       else if (e.status === 503) setStatus('error', 'Релей сейчас не принимает новые семьи');
@@ -307,7 +310,7 @@
     render();
   }
   var ST = {
-    none: 'Семья не настроена', offline: 'Нет сети — сохранено на устройстве', sync: 'Синхронизация…',
+    none: 'Семья не настроена', offline: 'Нет сети — сохранено на устройстве', sync: 'Синхронизация…', gone: 'Ключ семьи сменили',
     denied: 'Релей не принял ключ семьи', error: 'Ошибка синхронизации'
   };
   function syncLabel() {
@@ -316,7 +319,7 @@
   }
   function syncChip() {
     if (UI.status === 'none') return '<span data-sync hidden></span>';   // без семьи плашка не нужна: устройство работает само по себе
-    var warn = /denied|error|offline/.test(UI.status);   // «без семьи» — осознанный выбор, не ошибка
+    var warn = /denied|error|offline|gone/.test(UI.status);   // «без семьи» — осознанный выбор, не ошибка
     return '<button class="sync' + (warn ? ' warn' : '') + (UI.status === 'sync' ? ' busy' : '') + '" data-sync data-act="sync-tap"><span>' + esc(syncLabel()) + '</span></button>';
   }
 
@@ -350,17 +353,68 @@
     render();
   }
   function gkeyNote() { return UI.gkey ? '<p class="muted" role="status">' + (UI.gkey === 'busy' ? 'Связываюсь с Google…' : esc(UI.gkey)) + '</p>' : ''; }
-  function deviceModal() {
+  function deviceModal(note) {
     var link = joinLink();
-    modal('<div class="device"><h3>Новое устройство</h3>' +
+    modal('<div class="device"><h3>' + (note ? 'Новый ключ семьи' : 'Новое устройство') + '</h3>' + (note ? '<p><b>' + esc(note) + '</b></p>' : '') +
       '<p>Наведите камеру телефона на код или откройте ссылку на новом устройстве. В приложении на ПК и с экрана «Домой» iPhone: «Ещё» → вставьте ссылку в поле «Присоединиться».</p>' +
       '<div class="qrbox">' + MQR.svg(link) + '</div>' +
       '<div class="copy"><input readonly value="' + esc(link) + '" aria-label="Ссылка для нового устройства"><button type="button" class="btn" data-act="copy" data-v="' + esc(link) + '">Копировать</button></div>' +
       '<p class="muted">Ссылка — ключ ко всем данным семьи. Отправляйте только своим и не публикуйте.</p>' +
       '<div class="row"><button type="button" class="btn ghost" data-act="show-words">Показать 12 слов</button><button type="button" class="btn ghost" data-act="close">Готово</button></div></div>');
   }
+  /* смена ключа семьи: всё — под новым ключом, старая семья на релее стирается и закрывается (relay close → 410).
+     Старые ссылка, QR и 12 слов больше ничего не открывают; свои устройства подключаются заново (QR или Google). */
+  function rotateModal(msg) {
+    var busy = UI.rot === 'busy';
+    modal('<div class="rotate"><h3>Сменить ключ семьи</h3>' +
+      '<p>Нужно, если ссылка-приглашение, QR-код или 12 слов попали к чужим, потерялось устройство или кто-то больше не должен видеть меню семьи.</p>' +
+      '<ol class="gen"><li>Создаётся новый ключ, все данные переходят под него.</li>' +
+      '<li>Данные под старым ключом на релее стираются: старые ссылка, QR-код и 12 слов больше ничего не открывают.</li>' +
+      '<li>Остальные ваши устройства перестанут получать изменения — подключите их заново новым QR-кодом' + (UI.gsaved ? ' или «Войти через Google»: ключ в Google обновится сам' : '') + '. Их данные останутся.</li></ol>' +
+      '<p class="muted">Нужна сеть. Изменения, которые другие устройства ещё не успели отправить, останутся только на них.</p>' +
+      (msg ? '<p class="err" role="alert">' + esc(msg) + '</p>' : '') +
+      '<div class="row"><button type="button" class="btn" data-act="rotate-ok"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Меняю ключ…' : 'Сменить ключ') + '</button>' +
+      '<button type="button" class="btn ghost" data-act="close"' + (busy ? ' disabled' : '') + '>Отмена</button></div></div>');
+  }
+  async function rotateFamily() {
+    if (UI.rot === 'busy' || !FAMILY.keys) return;
+    if (!navigator.onLine) return rotateModal('Нет сети — ключ можно сменить только онлайн.');
+    UI.rot = 'busy'; rotateModal();
+    while (syncing) await new Promise(function (r) { setTimeout(r, 150); });
+    syncing = true;
+    var oldCode = FAMILY.code, oldKeys = FAMILY.keys, ok = false, msg = '';
+    var io = function (keys, sent, seq) {
+      return RL.run({ fetch: hfetch, url: CFG.relayUrl, keys: keys, sent: sent, seq: seq, get: function () { return S; }, persist: async function (Mg) { S = M.merge(S, Mg); await saveState(); } });
+    };
+    try {
+      if (!UI.gone) await io(oldKeys, RS.sent, RS.seq);   // сначала забрать то, что успели прислать другие устройства
+      var code = FK.toCode(FK.newRoot()), res = await io(await FK.derive(FK.fromCode(code)), {}, 0);   // всё — в новую семью
+      await familyUse(code);
+      RS = { seq: res.seq, sent: res.sent, at: Date.now() }; await store.set('relay', RS);
+      await store.set('closeold', oldCode); ok = true;
+    } catch (e) {
+      msg = e.status === 503 ? 'Релей сейчас не принимает новые семьи — попробуйте завтра. Ключ не сменён.'
+        : !navigator.onLine || e instanceof TypeError ? 'Нет сети. Ключ не сменён.' : 'Не получилось (' + String(e.message || e) + '). Ключ не сменён.';
+    } finally { syncing = false; UI.rot = ''; }
+    if (!ok) return rotateModal(msg);
+    await closeOld();
+    setStatus('ok'); render();
+    deviceModal('Ключ семьи сменён. Старые ссылка, QR-код и 12 слов больше не работают. Подключите остальные устройства этим кодом' + (UI.gsaved ? ' или через «Войти через Google»' : '') + '.');
+    if (UI.gsaved) googleKey('gsave');
+  }
+  /* старая семья закрывается сразу после смены ключа; не вышло (нет сети) — при следующей синхронизации */
+  async function closeOld() {
+    var c = await store.get('closeold'); if (!c || !FK.fromCode(c)) return;
+    try { await RL.close({ fetch: hfetch, url: CFG.relayUrl, keys: await FK.derive(FK.fromCode(c)) }); await store.set('closeold', null); } catch (e) { }
+  }
   function viewDevices() {
     var h = '<section class="box" id="devices"><h3>Синхронизация</h3>';
+    if (FAMILY.keys && UI.gone) {
+      return h + '<p class="err">Ключ семьи сменили на другом устройстве.</p><p>Это устройство больше не получает и не отправляет изменения. Подключите его заново: отсканируйте новый QR-код, вставьте новую ссылку или 12 слов ниже или нажмите «Войти через Google». Данные на этом устройстве останутся — их копию можно будет скачать.</p>' +
+        '<form class="add" data-form="join"><input name="code" autocomplete="off" placeholder="Новая ссылка-приглашение или 12 слов" aria-label="Новая ссылка-приглашение или 12 слов" required><button class="btn">Подключить</button></form>' +
+        '<div class="row"><button type="button" class="btn ghost" data-act="gkey-load"' + (UI.gkey === 'busy' ? ' disabled' : '') + '>Войти через Google</button>' +
+        '<button type="button" class="link danger" data-act="family-leave">Отключить устройство от семьи</button></div>' + gkeyNote() + '</section>';
+    }
     if (!FAMILY.keys) {
       h += '<p>Устройства семьи обмениваются данными через релей. Всё шифруется на устройстве — сервер видит только шифр. Регистрации нет: устройства объединяет ключ семьи.</p>' +
         '<div class="row"><button type="button" class="btn" data-act="family-new">Создать семью</button>' +
@@ -375,7 +429,9 @@
           : '<p>Сохраните ключ семьи в своём Google-аккаунте — тогда на других своих устройствах можно войти в семью без QR-кода. Ключ ляжет в скрытую папку приложения на Google Диске: кто войдёт в ваш Google-аккаунт, сможет открыть данные семьи.</p>' +
             '<button type="button" class="btn ghost" data-act="gkey-save"' + (UI.gkey === 'busy' ? ' disabled' : '') + '>Сохранить ключ в Google</button>') +
         gkeyNote() + '</div>' +
-        '<button type="button" class="link danger" data-act="family-leave">Отключить устройство от семьи</button>';
+        '<div class="row"><button type="button" class="btn ghost" data-act="rotate">Сменить ключ семьи</button>' +
+        '<button type="button" class="link danger" data-act="family-leave">Отключить устройство от семьи</button></div>' +
+        '<p class="muted">Ключ стоит сменить, если ссылка, QR-код или 12 слов попали к чужим или потерялось устройство.</p>';
     }
     if (UI.err) h += '<p class="muted">' + esc(UI.err) + '</p>';
     return h + '</section>';
@@ -1240,7 +1296,9 @@
       case 'recipe-edit': recipeEditor(id); break;
       case 'recipe-cancel': if (id && S.recipes[id]) recipeView(id, UI.rmeal); else closeModal(); break;
       case 'recipe-del': { var rd = S.recipes[id]; closeModal(); if (rd) undoable('Рецепт удалён: ' + rd.name + '.', function (c) { c.del('recipes', id); }); break; }
-      case 'sync-tap': if (!FAMILY.keys) { UI.tab = 'more'; render(); } else syncNow(); break;
+      case 'sync-tap': if (!FAMILY.keys || UI.gone) { UI.tab = 'more'; lsSet('tab', 'more'); render(); var dv = document.getElementById('devices'); if (dv) dv.scrollIntoView({ block: 'start' }); } else syncNow(); break;
+      case 'rotate': rotateModal(); break;
+      case 'rotate-ok': rotateFamily(); break;
       case 'sheet-now': sheetNow(); break;
       case 'add-device': deviceModal(); break;
       case 'show-words': FK.toWords(FK.fromCode(FAMILY.code)).then(function (w) { b.outerHTML = '<p class="words">' + esc(w) + '</p>'; }); break;

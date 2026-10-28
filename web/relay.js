@@ -65,6 +65,15 @@
     return { seq: seq, sent: sent, changed: changed, pushed: out.length, dropped: dropped };
   }
 
-  var api = { run: run };
+  /* смена ключа: стереть записи старой семьи на релее и закрыть её (дальше — 410). Нет такой семьи (404) или уже закрыта (410) — тоже готово. */
+  async function close(c) {
+    var r = await c.fetch(String(c.url).replace(/\/+$/, '') + '/v1/' + c.keys.fid + '/close', { method: 'POST', headers: { Authorization: 'Bearer ' + c.keys.auth } });
+    if (r.ok || r.status === 410) return;
+    /* 404 «none» — семьи на релее нет; другой 404 — релей без close (старая версия): старая семья не закрыта, повторим позже */
+    var j = r.status === 404 ? await r.json().catch(function () { return {}; }) : {};
+    if (j.error !== 'none') throw err(r.status);
+  }
+
+  var api = { run: run, close: close };
   if (typeof module === 'object' && module.exports) module.exports = api; else root.MRelay = api;
 })(typeof self !== 'undefined' ? self : this);

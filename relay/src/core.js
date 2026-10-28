@@ -23,7 +23,7 @@ export function json(obj, status, extra) {
 }
 /* /v1/<fid>/<op> → {fid, op} или null */
 export function route(url) {
-  const m = new URL(url).pathname.match(/^\/v1\/([0-9a-f]{32})\/(push|pull)$/);
+  const m = new URL(url).pathname.match(/^\/v1\/([0-9a-f]{32})\/(push|pull|close)$/);
   return m ? { fid: m[1], op: m[2] } : null;
 }
 async function sha256hex(s) {
@@ -37,12 +37,20 @@ function same(a, b) {
 }
 
 /* Запрос к одной семье. store: {getAuth, setAuth, put(k, ct) → seq, drop(k), since(seq, n) → [{k, ct, seq}], count, size, last,
-   claim?(fid) → можно ли завести новую семью}. Пропуск семьи закрепляется первой записью: релей хранит только SHA-256 от него. */
+   closed() → закрыта ли, close() — стереть все записи и закрыть, claim?(fid) → можно ли завести новую семью}.
+   Пропуск семьи закрепляется первой записью: релей хранит только SHA-256 от него.
+   close — смена ключа семьи: записи под старым ключом стираются, дальше на любой запрос с этим пропуском — 410 gone. */
 export async function handleFamily(req, store, op, fid) {
   const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
   if (token.length < 32 || token.length > 128) return json({ error: 'auth' }, 401);
   const h = await sha256hex(token), have = await store.getAuth();
   if (have && !same(have, h)) return json({ error: 'auth' }, 403);
+  if (have && await store.closed()) return json({ error: 'gone' }, 410);
+  if (op === 'close') {
+    if (!have) return json({ error: 'none' }, 404);
+    await store.close();
+    return json({ closed: true });
+  }
 
   if (op === 'pull') {
     if (!have) return json({ items: [], seq: 0, more: false, last: 0 });
@@ -79,9 +87,10 @@ export async function handleFamily(req, store, op, fid) {
 
 /* Хранилище в памяти — для тестов и подделки релея в e2e. */
 export function memoryStore(claim) {
-  let auth = '', seq = 0; const rows = new Map();
+  let auth = '', seq = 0, shut = false; const rows = new Map();
   return {
     getAuth: async () => auth, setAuth: async (h) => { auth = h; },
+    closed: async () => shut, close: async () => { rows.clear(); shut = true; },
     put: async (k, ct) => { seq++; rows.set(k, { k, ct, seq }); return seq; },
     drop: async (k) => { rows.delete(k); },
     since: async (s, n) => [...rows.values()].filter((r) => r.seq > s).sort((a, b) => a.seq - b.seq).slice(0, n),
@@ -118,7 +127,7 @@ export async function handle(req, env, family) {
     const { success } = await env.LIMITER.limit({ key: req.headers.get('CF-Connecting-IP') || 'anon' });
     if (!success) return json({ error: 'rate' }, 429, Object.assign({ 'Retry-After': '60' }, ch));
   }
-  if ((r.op === 'push' && req.method !== 'POST') || (r.op === 'pull' && req.method !== 'GET')) return json({ error: 'method' }, 405, ch);
+  if ((r.op !== 'pull' && req.method !== 'POST') || (r.op === 'pull' && req.method !== 'GET')) return json({ error: 'method' }, 405, ch);
   if (origin && !allowedOrigin(origin, env)) return json({ error: 'origin' }, 403, ch);
   const res = await family(r.fid, req, r.op);
   const out = new Response(res.body, res);

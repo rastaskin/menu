@@ -21,6 +21,8 @@ export class Family {
         return seq;
       },
       drop: async (k) => { sql.exec('DELETE FROM rows WHERE k = ?', k); },
+      closed: async () => meta('closed') === '1',
+      close: async () => { sql.exec('DELETE FROM rows'); setMeta('closed', '1'); },
       since: async (s, n) => sql.exec('SELECT k, ct, seq FROM rows WHERE seq > ? ORDER BY seq LIMIT ?', s, n).toArray(),
       count: async () => sql.exec('SELECT COUNT(*) AS n FROM rows').toArray()[0].n,
       size: async () => sql.exec('SELECT COALESCE(SUM(LENGTH(k) + LENGTH(ct)), 0) AS n FROM rows').toArray()[0].n,
