@@ -39,19 +39,30 @@
     return best;
   }
   /* Отдельные иконки (foodlist.js, web/icons/food/<ключ>.webp): правило — по названию. Все значимые слова по порядку, между ними
-     до двух слов; длинное слово — по основе («креветки» → «кревет»), до 6 букв — целиком с одной сменной буквой («соль» не ловит «солянку», «кунжут» — «кунжутное масло»).
+     до двух слов; длинное слово — по основе («креветки» → «кревет»), до 6 букв — целиком, меняется только окончание («соль» не ловит «солянку», «чай» — «чан», «кунжут» — «кунжутное масло»).
      Они точнее спрайта, поэтому идут первыми, длинные названия — раньше коротких. Ключ — «f:<имя файла>». */
   var LIST = root.MFoodList || (typeof require === 'function' ? require('./foodlist.js') : []);
   var STOP = { 'с': 1, 'со': 1, 'и': 1, 'в': 1, 'на': 1, 'по': 1, 'из': 1 };
+  var V = '[аеиоуыэюяьй]';
   function part(w) {
     if (w.length >= 7) return w.slice(0, -2);
-    return (/[аеиоуыэюяьй]$/.test(w) && w.length > 2 ? w.slice(0, -1) : w) + '[а-я]?(?![а-я])';
+    /* короткое слово — целиком, меняется только окончание из гласных: «чай/чаю», но не «чан»; «соль/соли», но не «солянка» */
+    return new RegExp(V + '$').test(w) && w.length > 2 ? w.slice(0, -1) + V + '{0,2}(?![а-я])' : w + V + '{0,2}(?![а-я])';
   }
   var OWN = LIST.map(function (x) {
     var ws = norm(x[1]).split(/[^а-яa-z0-9]+/).filter(function (w) { return w && !STOP[w]; });
     return [new RegExp('(^|[^а-я])' + ws.map(part).join('[а-я]*[^а-я]+(?:[а-я]+[^а-я]+){0,2}?')), 'f:' + x[0], x[1].length];
   }).sort(function (a, b) { return b[2] - a[2]; });
-  function keyFor(text) { var t = norm(text); return pick(t, OWN.concat(RULES)) || pick(t, WEAK) || 'basket'; }
+  /* другие названия того же: только на иконки, которые уже есть */
+  var have = {}; LIST.forEach(function (x) { have['f:' + x[0]] = 1; });
+  var ALIAS = [[/корнишон/, 'f:solenye-ogurtsy'], [/(^|[^а-я])джем/, 'f:varene'], [/томатн[а-я]* заготовк/, 'f:tomatnaya-pasta'],
+    [/гриб[а-я]* сушен|сушен[а-я]* гриб/, 'f:belye-griby'], [/(^|[^а-я])овсянк/, 'f:ovsyanka-na-moloke'], [/(^|[^а-я])лайм/, 'f:laym']].filter(function (r) { return have[r[1]]; });
+  var STRONG = OWN.concat(ALIAS, RULES);
+  /* сначала — без пояснений в скобках: «Капуста (к курице)» — капуста, а не курица */
+  function keyFor(text) {
+    var t = norm(text), bare = norm(String(text || '').replace(/\([^)]*\)?/g, ' '));
+    return pick(bare, STRONG) || pick(bare, WEAK) || pick(t, STRONG) || pick(t, WEAK) || 'basket';
+  }
   /* <span> с иконкой; размер задаёт CSS (.fi, .fi-l). */
   function html(text, cls) {
     var k = keyFor(text);

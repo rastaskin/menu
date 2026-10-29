@@ -1,0 +1,242 @@
+[
+ {
+  "id": 1,
+  "name": "кейран-ччим.png",
+  "prompt": "A single food icon for a family meal-planning app: Korean steamed egg custard (gyeran-jjim) puffed in a small earthenware bowl, topped with green onion. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 2,
+  "name": "джук.png",
+  "prompt": "A single food icon for a family meal-planning app: a bowl of Korean rice porridge (juk) with grated carrot, soft egg ribbons and a few sesame seeds. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 3,
+  "name": "дубу-чорим.png",
+  "prompt": "A single food icon for a family meal-planning app: a plate of Korean braised tofu slices in a light soy glaze with green onion and sesame, not spicy. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 4,
+  "name": "рисовые шарики.png",
+  "prompt": "A single food icon for a family meal-planning app: three Korean rice balls (jumeok-bap) rolled in sesame seeds, one cut showing tuna filling. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 5,
+  "name": "уха из форели.png",
+  "prompt": "A single food icon for a family meal-planning app: a bowl of clear Russian fish soup (ukha) with trout pieces, potato, carrot and dill. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 6,
+  "name": "шейка с капустой.png",
+  "prompt": "A single food icon for a family meal-planning app: a baked pork neck steak on a bed of braised white cabbage. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 7,
+  "name": "удон с мидиями.png",
+  "prompt": "A single food icon for a family meal-planning app: a bowl of udon noodles with mussels, zucchini and spinach in a creamy soy sauce. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 8,
+  "name": "бигос.png",
+  "prompt": "A single food icon for a family meal-planning app: a bowl of mild Polish bigos: braised cabbage with pieces of meat and sausage. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 9,
+  "name": "овсянка на молоке.png",
+  "prompt": "A single food icon for a family meal-planning app: a bowl of creamy oatmeal porridge cooked in milk with a melting pat of butter. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 10,
+  "name": "запечённая овсянка.png",
+  "prompt": "A single food icon for a family meal-planning app: a portion of baked oatmeal with apple slices and cinnamon in a small ceramic baking dish. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 11,
+  "name": "солёная овсянка.png",
+  "prompt": "A single food icon for a family meal-planning app: a bowl of savory oatmeal topped with a poached egg and wilted spinach. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 12,
+  "name": "овсяные блинчики.png",
+  "prompt": "A single food icon for a family meal-planning app: a stack of thin oat crepes with cream cheese and banana slices. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 13,
+  "name": "овсяная запеканка.png",
+  "prompt": "A single food icon for a family meal-planning app: a square slice of baked oat and cottage cheese casserole with banana. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 14,
+  "name": "печень в сметане.png",
+  "prompt": "A single food icon for a family meal-planning app: a plate of chicken livers in creamy sour cream sauce with soft cooked onion. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 15,
+  "name": "скумбрия в фольге.png",
+  "prompt": "A single food icon for a family meal-planning app: a whole mackerel baked in opened foil with lemon slices and herbs. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 16,
+  "name": "рис с перловкой.png",
+  "prompt": "A single food icon for a family meal-planning app: a bowl of steamed white rice mixed with pearl barley. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 17,
+  "name": "минтай под морковью.png",
+  "prompt": "A single food icon for a family meal-planning app: a baked white pollock fillet topped with soft sautéed carrot and onion. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 18,
+  "name": "гречка рассыпчатая.png",
+  "prompt": "A single food icon for a family meal-planning app: a bowl of fluffy cooked buckwheat with a pat of butter. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 19,
+  "name": "рагу с говядиной.png",
+  "prompt": "A single food icon for a family meal-planning app: a bowl of beef stew with potato and carrot chunks. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 20,
+  "name": "курица с капустой.png",
+  "prompt": "A single food icon for a family meal-planning app: baked chicken thighs with braised cabbage in a small baking dish. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 21,
+  "name": "суп с говядиной.png",
+  "prompt": "A single food icon for a family meal-planning app: a bowl of beef and potato soup with carrot and herbs. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 22,
+  "name": "сырники.png",
+  "prompt": "A single food icon for a family meal-planning app: a stack of golden Russian syrniki (cottage cheese pancakes) with a spoon of sour cream and a few berries. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 23,
+  "name": "едим в гостях.png",
+  "prompt": "A single food icon for a family meal-planning app: a festive party place setting: a plate with a slice of cake, a small candle and a wrapped gift box. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 24,
+  "name": "варенье.png",
+  "prompt": "A single food icon for a family meal-planning app: a glass jar of homemade jam with a spoon resting on top. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 25,
+  "name": "лайм.png",
+  "prompt": "A single food icon for a family meal-planning app: a whole lime and a lime half. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 26,
+  "name": "кленовый сироп.png",
+  "prompt": "A single food icon for a family meal-planning app: a glass bottle of amber maple syrup with a maple leaf beside it, no label text. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 27,
+  "name": "смесь семян.png",
+  "prompt": "A single food icon for a family meal-planning app: a small bowl of mixed sunflower, sesame, flax and chia seeds. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 28,
+  "name": "бульон.png",
+  "prompt": "A single food icon for a family meal-planning app: a cup of clear golden broth next to a few bouillon cubes. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 29,
+  "name": "приправы.png",
+  "prompt": "A single food icon for a family meal-planning app: three small bowls of colourful spice blends: yellow curry, red paprika and green dried herbs. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 30,
+  "name": "арахисовая паста.png",
+  "prompt": "A single food icon for a family meal-planning app: an open jar of smooth peanut butter with a few peanuts. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 31,
+  "name": "паста том ям.png",
+  "prompt": "A single food icon for a family meal-planning app: an open small jar of red-orange tom yum paste with a lemongrass stalk and a small chili. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 32,
+  "name": "азу.png",
+  "prompt": "A single food icon for a family meal-planning app: a bowl of beef azu stew with pickles and potatoes. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 33,
+  "name": "картофельный гратен.png",
+  "prompt": "A single food icon for a family meal-planning app: a portion of creamy potato gratin with golden top. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 34,
+  "name": "ёжики.png",
+  "prompt": "A single food icon for a family meal-planning app: a plate of rice and meat hedgehog meatballs in sauce. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 35,
+  "name": "брускетта.png",
+  "prompt": "A single food icon for a family meal-planning app: two bruschettas with tomatoes and basil. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 36,
+  "name": "сырная тарелка.png",
+  "prompt": "A single food icon for a family meal-planning app: a small board with assorted cheese slices and grapes. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 37,
+  "name": "ленивая овсянка.png",
+  "prompt": "A single food icon for a family meal-planning app: a glass jar of overnight oats with berries. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 38,
+  "name": "картофельная запеканка.png",
+  "prompt": "A single food icon for a family meal-planning app: a square slice of potato casserole with minced meat. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 39,
+  "name": "ягодный пирог.png",
+  "prompt": "A single food icon for a family meal-planning app: a slice of open berry tart. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 40,
+  "name": "ватрушка.png",
+  "prompt": "A single food icon for a family meal-planning app: a round Russian vatrushka bun with cottage cheese. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 41,
+  "name": "сочник.png",
+  "prompt": "A single food icon for a family meal-planning app: a golden sochnik pastry with cottage cheese filling. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 42,
+  "name": "булочка с корицей.png",
+  "prompt": "A single food icon for a family meal-planning app: a cinnamon roll with white glaze. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 43,
+  "name": "чизкейк.png",
+  "prompt": "A single food icon for a family meal-planning app: a slice of burnt Basque cheesecake. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 44,
+  "name": "заварные пирожные.png",
+  "prompt": "A single food icon for a family meal-planning app: two cream puffs (choux) with powdered sugar. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 45,
+  "name": "маффин.png",
+  "prompt": "A single food icon for a family meal-planning app: a cottage cheese muffin with berries. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 46,
+  "name": "чак-чак.png",
+  "prompt": "A single food icon for a family meal-planning app: a small mound of Tatar chak-chak with honey. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 47,
+  "name": "пахлава.png",
+  "prompt": "A single food icon for a family meal-planning app: a few diamond pieces of baklava with pistachios. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ },
+ {
+  "id": 48,
+  "name": "шоколадный торт.png",
+  "prompt": "A single food icon for a family meal-planning app: a slice of chocolate layer cake. Semi-realistic soft painted illustration, like a premium recipe app icon set; 3/4 view from slightly above; soft studio light from the top left, gentle contact shadow directly under the object; rich natural appetising colours, clean crisp edges. Isolated on a fully transparent background (PNG with alpha channel), object centered and filling about 80% of a square 1024x1024 canvas, nothing cropped. No text, no labels, no logos, no hands, no table surface, no cutlery unless part of the dish, no extra props, no frame or border."
+ }
+]
