@@ -38,13 +38,28 @@
     rules.forEach(function (r) { var m = r[0].exec(t); if (m && m.index < at) { at = m.index; best = r[1]; } });
     return best;
   }
-  function keyFor(text) { var t = norm(text); return pick(t, RULES) || pick(t, WEAK) || 'basket'; }
+  /* Отдельные иконки (foodlist.js, web/icons/food/<ключ>.webp): правило — по названию. Все значимые слова по порядку, между ними
+     до двух слов; длинное слово — по основе («креветки» → «кревет»), до 6 букв — целиком с одной сменной буквой («соль» не ловит «солянку», «кунжут» — «кунжутное масло»).
+     Они точнее спрайта, поэтому идут первыми, длинные названия — раньше коротких. Ключ — «f:<имя файла>». */
+  var LIST = root.MFoodList || (typeof require === 'function' ? require('./foodlist.js') : []);
+  var STOP = { 'с': 1, 'со': 1, 'и': 1, 'в': 1, 'на': 1, 'по': 1, 'из': 1 };
+  function part(w) {
+    if (w.length >= 7) return w.slice(0, -2);
+    return (/[аеиоуыэюяьй]$/.test(w) && w.length > 2 ? w.slice(0, -1) : w) + '[а-я]?(?![а-я])';
+  }
+  var OWN = LIST.map(function (x) {
+    var ws = norm(x[1]).split(/[^а-яa-z0-9]+/).filter(function (w) { return w && !STOP[w]; });
+    return [new RegExp('(^|[^а-я])' + ws.map(part).join('[а-я]*[^а-я]+(?:[а-я]+[^а-я]+){0,2}?')), 'f:' + x[0], x[1].length];
+  }).sort(function (a, b) { return b[2] - a[2]; });
+  function keyFor(text) { var t = norm(text); return pick(t, OWN.concat(RULES)) || pick(t, WEAK) || 'basket'; }
   /* <span> с иконкой; размер задаёт CSS (.fi, .fi-l). */
   function html(text, cls) {
-    var i = KEYS.indexOf(keyFor(text)), x = i % COLS, y = Math.floor(i / COLS), rows = Math.ceil(KEYS.length / COLS);
+    var k = keyFor(text);
+    if (k.indexOf('f:') === 0) return '<span class="fi fi-own' + (cls ? ' ' + cls : '') + '" aria-hidden="true" style="background-image:url(icons/food/' + k.slice(2) + '.webp)"></span>';
+    var i = KEYS.indexOf(k), x = i % COLS, y = Math.floor(i / COLS), rows = Math.ceil(KEYS.length / COLS);
     return '<span class="fi' + (cls ? ' ' + cls : '') + '" aria-hidden="true" style="background-position:' +
       (x * 100 / (COLS - 1)) + '% ' + (y * 100 / (rows - 1)) + '%"></span>';
   }
-  var api = { KEYS: KEYS, keyFor: keyFor, html: html };
+  var api = { KEYS: KEYS, OWN: OWN.map(function (r) { return r[1]; }), keyFor: keyFor, html: html };
   if (typeof module !== 'undefined') module.exports = api; else root.MFood = api;
 })(this);

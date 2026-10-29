@@ -34,8 +34,8 @@ test('смена ключа семьи: старые ссылка и устро�
     await A.click('[data-sync]'); await synced(A);
 
     const B = await device(browser, base, relay, oldLink.slice(oldLink.indexOf('#'))); B.on('pageerror', (e) => errors.push(String(e)));
+    await B.waitForFunction(() => Object.values(window.__menu.S.pantry).some((p) => p.name === 'Рис'));   // «Синхр» ловит и «Синхронизация…» — ждём сами данные
     await synced(B);
-    assert.ok(await B.evaluate(() => Object.values(window.__menu.S.pantry).some((p) => p.name === 'Рис')));
     const stores = () => [...relay.stores.values()];
     assert.equal(stores().length, 1);
 

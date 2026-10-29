@@ -5,6 +5,9 @@
   var M = window.MModel, P = window.MPlan, SH = window.MSheets, CFG = window.MCONFIG || {};
   /* таблица + скрытая папка приложения на Google Диске (ключ семьи, gdrive.js) */
   var SCOPE = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.appdata';
+  /* Google Календарь — только если включён: свой календарь «Меню» (calendar.app.created) и чтение событий основного */
+  var CAL_SCOPE = 'https://www.googleapis.com/auth/calendar.app.created https://www.googleapis.com/auth/calendar.events.readonly';
+  function scopes() { return SCOPE + (SY.cal ? ' ' + CAL_SCOPE : ''); }
   var AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
   var $app = document.getElementById('app');
 
@@ -183,7 +186,7 @@
       setTimeout(function () { rej(new Error('timeout')); }, 300000);
     });
     try {
-      await TAURI.opener.openUrl(AUTH_URL + '?' + qs({ client_id: CFG.desktopClientId, redirect_uri: redirect, response_type: 'code', scope: SCOPE,
+      await TAURI.opener.openUrl(AUTH_URL + '?' + qs({ client_id: CFG.desktopClientId, redirect_uri: redirect, response_type: 'code', scope: scopes(),
         code_challenge: ch, code_challenge_method: 'S256', state: st, access_type: 'offline', prompt: 'consent' }));
       var q = new URLSearchParams((await got).split('?')[1] || '');
       if (q.get('state') !== st || !q.get('code')) throw new Error(q.get('error') || 'state');
@@ -207,8 +210,8 @@
   /* after — что сделать после входа: 'sheet' — обмен с таблицей, 'gload' / 'gsave' / 'gforget' — ключ семьи в Google (googleKey) */
   function login(prompt, after) {
     after = after || 'sheet';
-    var then = function () { if (after === 'sheet') sheetNow(); else googleKey(after, true); };
-    var say = function (m) { if (after === 'sheet') UI.sheet = m; else UI.gkey = m; render(); };
+    var then = function () { if (after === 'sheet') sheetNow(); else if (after === 'cal') calSync(true); else googleKey(after, true); };
+    var say = function (m) { if (after === 'sheet') UI.sheet = m; else if (after === 'cal') UI.cal = m; else UI.gkey = m; render(); };
     if (TAURI) {
       if (!CFG.desktopClientSecret) { say('В этой сборке нет секрета Desktop-клиента Google'); return; }
       say('busy');
@@ -219,7 +222,7 @@
     if (!CFG.webClientId) { alert('В config.js не задан Client ID Google'); return; }
     var st = b64url(rnd(16));
     lsSet('oauth', { st: st, ts: Date.now() }); lsSet('after', after);
-    var q = { client_id: CFG.webClientId, redirect_uri: location.origin + location.pathname.replace(/index\.html$/, ''), response_type: 'token', scope: SCOPE, state: st, include_granted_scopes: 'true' };
+    var q = { client_id: CFG.webClientId, redirect_uri: location.origin + location.pathname.replace(/index\.html$/, ''), response_type: 'token', scope: scopes(), state: st, include_granted_scopes: 'true' };
     if (prompt) q.prompt = prompt;
     if (SY.hint) q.login_hint = SY.hint;
     location.assign(AUTH_URL + '?' + Object.keys(q).map(function (k) { return k + '=' + encodeURIComponent(q[k]); }).join('&'));
@@ -272,7 +275,7 @@
       if (editSeq === seq) SY.dirty = false;
       await saveSync(); setStatus('ok');
       if (res.changed) { render(); famDecrypt(); }
-      closeOld();
+      closeOld(); calAuto();
     } catch (e) {
       if (e.stale) again = true;
       else if (e.status === 410) { UI.gone = true; setStatus('gone'); render(); }
@@ -351,6 +354,57 @@
         : !navigator.onLine ? 'Нет сети' : 'Не получилось: ' + String(e.message || e);
     }
     render();
+  }
+  /* ---------- Google Календарь (gcal.js): блюда и готовка — в свой календарь «Меню», события основного — в дни меню ----------
+     Состояние — на устройстве: SY.cal = {id, sent, at}, SY.calEv = {дата: [текст]}; в семью и таблицу не уходит. */
+  var GC = window.MGCal, SLOT_TIME = { 'завтрак': '08:00', 'обед': '13:00', 'перекус': '16:30', 'ужин': '19:00', 'с собой': '08:30' };
+  function calTz() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Moscow'; } catch (e) { return 'Europe/Moscow'; } }
+  function calWanted(from, to) {
+    var out = [];
+    M.list(S, 'meals').forEach(function (m) {
+      if (!m.text || !m.date || m.date < from || m.date > to) return;
+      var rs = mealRecipes(m).map(function (r) { return r.name; });
+      out.push({ key: 'm:' + m.id, date: m.date, start: m.time || SLOT_TIME[m.slot] || '12:00', mins: 30,
+        summary: slotLabel(m.slot) + ': ' + m.text + (m.prep ? ' (заготовка)' : ''),
+        description: (rs.length ? 'Рецепт: ' + rs.join(', ') + '\n' : '') + 'Из приложения «Меню»' });
+    });
+    M.list(S, 'days').forEach(function (d) {
+      var date = d.date || d.id; if (!d.cook || !date || date < from || date > to) return;
+      out.push({ key: 'c:' + date, date: date, summary: 'Готовка: ' + d.cook, description: 'Из приложения «Меню»' });
+    });
+    return out;
+  }
+  async function calSync(manual) {
+    if (!SY.cal || UI.cal === 'busy') return;
+    if (!tokenValid()) { if (manual) login('consent', 'cal'); return; }
+    UI.cal = 'busy'; if (manual) render();
+    var t = today(), from = addDays(t, -7), to = addDays(t, 28), tz = calTz();
+    try {
+      var cal = await GC.push({ fetch: hfetch, token: getToken, cal: SY.cal, wanted: calWanted(from, to), from: from, to: to, tz: tz, title: 'Меню' });
+      SY.calEv = await GC.pull({ fetch: hfetch, token: getToken, from: addDays(t, -31), to: addDays(t, 60) });
+      if (SY.cal) SY.cal = Object.assign(cal, { at: Date.now() });
+      UI.cal = ''; await saveSync();
+    } catch (e) {
+      if (e.status === 401 || e.reason === 'insufficientPermissions') {   // нет входа или вход без доступа к календарю
+        UI.cal = manual ? '' : 'Нужен вход в Google с доступом к календарю — нажмите «Обменяться с календарём».';
+        if (manual) { UI.cal = ''; lsSet('token', null); if (TAURI) DESK.signed = false; login('consent', 'cal'); return; }
+      } else UI.cal = e.status === 403 && /accessNotConfigured|disabled/i.test(e.reason) ? 'Google не дал доступ к календарю: в проекте Google Cloud нужно включить Google Calendar API.'
+        : !navigator.onLine ? 'Нет сети' : 'Не получилось: ' + String(e.message || e);
+    }
+    render();
+  }
+  /* сам — не чаще раза в 10 минут и только с действующим входом (без окна входа) */
+  function calAuto() { if (SY.cal && UI.cal !== 'busy' && tokenValid() && Date.now() - (SY.cal.at || 0) > 600000) calSync(false); }
+  function calChips(date) { return ((SY.calEv && SY.calEv[date]) || []).map(function (t) { return '<span class="tag t-cal" title="Google Календарь">' + esc(t) + '</span>'; }).join(''); }
+  function viewCal() {
+    var h = '<section class="box" id="gcal"><h3>Google Календарь</h3>', busy = UI.cal === 'busy';
+    if (!SY.cal) return h + '<p>Блюда и план готовки появятся в отдельном календаре «Меню» в вашем Google Календаре, а события основного календаря (учёба, работа, дни рождения) — в днях меню, чтобы планировать еду под занятость.</p>' +
+      '<p class="muted">События основного календаря остаются только на этом устройстве — в семью и таблицу они не попадают.</p>' +
+      '<button type="button" class="btn ghost" data-act="cal-on">Подключить календарь</button>' + (UI.cal ? '<p class="muted" role="status">' + esc(UI.cal) + '</p>' : '') + '</section>';
+    return h + '<p><b>Календарь «Меню»</b><br><span class="muted">' + (busy ? 'Обмен…' : UI.cal ? esc(UI.cal) : 'Последний обмен: ' + ago(SY.cal.at)) + '</span></p>' +
+      '<p class="muted">Выгружаются дни от недели назад до четырёх недель вперёд; время блюда — из окна блюда, иначе обычное для приёма пищи.</p>' +
+      '<div class="row"><button type="button" class="btn ghost" data-act="cal-now"' + (busy ? ' disabled' : '') + '>Обменяться с календарём</button>' +
+      '<button type="button" class="link danger" data-act="cal-off">Отключить</button></div></section>';
   }
   function gkeyNote() { return UI.gkey ? '<p class="muted" role="status">' + (UI.gkey === 'busy' ? 'Связываюсь с Google…' : esc(UI.gkey)) + '</p>' : ''; }
   function deviceModal(note) {
@@ -679,7 +733,7 @@
     var eaten = sl.filter(function (s) { var m = mealAt(date, s); return m && m.done; }).length;
     var next = ds[ds.indexOf(date) + 1], nd = next ? dayRec(next) || {} : null;
     var head = '<header class="day-head"><h2>' + (date === t ? 'Съели ' + eaten + ' из ' + sl.length : 'Ближайший день: ' + WDL[pd.getDay()] + ', ' + pd.getDate() + ' ' + MON[pd.getMonth()]) + '</h2>' +
-      (tg.length ? '<div class="tags">' + tg.map(function (x) { return '<span class="tag t-' + x.k + '">' + esc(x.t) + '</span>'; }).join('') + '</div>' : '') + '</header>';
+      (tg.length || calChips(date) ? '<div class="tags">' + tg.map(function (x) { return '<span class="tag t-' + x.k + '">' + esc(x.t) + '</span>'; }).join('') + calChips(date) + '</div>' : '') + '</header>';
     var plate = '<ul class="plate" id="d' + date + '">' + sl.map(function (s) { return mealRow(date, s, true); }).join('') + '</ul>' +
       (mealAt(date, 'с собой') ? '' : '<button class="link" data-act="meal-edit" data-date="' + date + '" data-slot="с собой">+ С собой</button>');
     var cook = '<section class="field">' + ICO.pot + '<div><h3>Готовка</h3><p>' + (d.cook ? esc(d.cook) : 'План готовки не задан') + '</p>' +
@@ -739,7 +793,29 @@
   var PASS_EVERY = 30 * 86400000;
   function passDue() { return !!(famMeta('fam_salt') && FAM.key && Date.now() - (+lsGet('passcheck') || 0) > PASS_EVERY); }
 
+  /* период «с … по …» вместо недели: история (прошлые дни с отметками «съели») и любой отрезок до RANGE_MAX дней */
+  var RANGE_MAX = 31;
+  function rangeDates(r) { var out = [], d = r.from; while (d <= r.to && out.length < RANGE_MAX) { out.push(d); d = addDays(d, 1); } return out; }
+  function monday(d) { var w = parseD(d).getDay(); return addDays(d, -((w + 6) % 7)); }
+  function rangePreset(v) {
+    var t = today(), m = monday(t);
+    return v === 'thisweek' ? { from: m, to: addDays(m, 6) } : v === 'lastweek' ? { from: addDays(m, -7), to: addDays(m, -1) }
+      : v === '2w' ? { from: addDays(t, -13), to: t } : { from: addDays(t, -29), to: t };
+  }
+  function viewRange() {
+    var r = UI.range, ds = rangeDates(r), t = today();
+    var bar = '<form class="add range" data-form="range"><label>С<input type="date" name="from" value="' + r.from + '" required></label>' +
+      '<label>по<input type="date" name="to" value="' + r.to + '" required></label><button class="btn">Показать</button></form>' +
+      '<div class="seg">' + [['thisweek', 'Эта неделя'], ['lastweek', 'Прошлая'], ['2w', '2 недели'], ['month', 'Месяц']].map(function (x) {
+        var p = rangePreset(x[0]), on = p.from === r.from && p.to === r.to;
+        return '<button type="button" class="' + (on ? 'on' : '') + '" data-act="range-preset" data-v="' + x[0] + '" aria-pressed="' + on + '">' + x[1] + '</button>';
+      }).join('') + '<button type="button" class="add-week" data-act="range-close">К неделям</button></div>';
+    var n = ds.filter(function (d) { return d < t; }).reduce(function (a, d) { return a + mealsOf(d).filter(function (m) { return m.text; }).length; }, 0);
+    var eaten = ds.filter(function (d) { return d < t; }).reduce(function (a, d) { return a + mealsOf(d).filter(function (m) { return m.text && m.done; }).length; }, 0);
+    return bar + (n ? '<p class="hint">За прошедшие дни периода съели ' + eaten + ' из ' + n + ' блюд по плану.</p>' : '') + '<div class="board" data-board>' + ds.map(dayCol).join('') + '</div>';
+  }
   function viewMenu() {
+    if (UI.range) return viewRange();
     var ws = weeks();
     if (!ws.length) return emptyState();
     var t = today(), wi = UI.week;
@@ -748,21 +824,23 @@
     var seg = '<div class="seg">' + ws.map(function (w, i) {
       return '<button class="' + (i === wi ? 'on' : '') + '" data-act="week" data-i="' + i + '"' + (i === wi ? ' aria-current="true"' : '') + '>' + dm(w[0]) + '–' + dm(w[w.length - 1]) + '</button>';
     }).join('') + '<button class="add-week" data-act="week-new">' + ICO.plus + 'Неделя</button>' +
-      '<button class="add-week" data-act="week-repeat" title="Скопировать блюда этой недели на следующие 7 дней">Повторить эту</button></div>';
-    var cols = ws[wi].map(function (date) {
-      var d = dayRec(date) || {}, tg = tags(d.tags), pd = parseD(date);
-      var places = slotsOf(date).map(function (s) { return boardPlace(date, s); }).join('');
-      return '<section class="col' + (date === t ? ' today' : '') + (date < t ? ' past' : '') + '" id="d' + date + '" aria-label="' + WDL[pd.getDay()] + ', ' + pd.getDate() + ' ' + MON[pd.getMonth()] + '">' +
-        '<header class="dh"><span class="dnum"><b>' + pd.getDate() + '</b><small>' + MON[pd.getMonth()].slice(0, 3) + '</small></span>' +
-        '<span class="dname">' + WDL[pd.getDay()] + (date === t ? '<em>сегодня</em>' : '') + '</span></header>' +
-        (tg.length ? '<div class="tags">' + tg.map(function (x) { return '<span class="tag t-' + x.k + '">' + esc(x.t) + '</span>'; }).join('') + '</div>' : '') +
-        '<ul class="places">' + places + '</ul>' +
-        '<button class="add-meal" data-act="meal-add" data-date="' + date + '">' + ICO.plus + 'Добавить</button>' +
-        '<button class="cook" data-act="cook-edit" data-date="' + date + '">' + ICO.pot + '<span>' + (d.cook ? esc(d.cook) : '<span class="muted">План готовки не задан</span>') + '</span></button>' +
-        '</section>';
-    }).join('');
+      '<button class="add-week" data-act="week-repeat" title="Скопировать блюда этой недели на следующие 7 дней">Повторить эту</button>' +
+      '<button class="add-week" data-act="range-open" title="История и любой отрезок дат">Период…</button></div>';
     return seg + '<p class="hint">Карточки можно перетаскивать между днями и приёмами пищи, на телефоне — нажав и подержав. Занятое место меняется местами.</p>' +
-      '<div class="board" data-board>' + cols + '</div>';
+      '<div class="board" data-board>' + ws[wi].map(dayCol).join('') + '</div>';
+  }
+  /* колонка дня на доске */
+  function dayCol(date) {
+    var t = today(), d = dayRec(date) || {}, tg = tags(d.tags), pd = parseD(date);
+    var places = slotsOf(date).map(function (s) { return boardPlace(date, s); }).join('');
+    return '<section class="col' + (date === t ? ' today' : '') + (date < t ? ' past' : '') + '" id="d' + date + '" aria-label="' + WDL[pd.getDay()] + ', ' + pd.getDate() + ' ' + MON[pd.getMonth()] + '">' +
+      '<header class="dh"><span class="dnum"><b>' + pd.getDate() + '</b><small>' + MON[pd.getMonth()].slice(0, 3) + '</small></span>' +
+      '<span class="dname">' + WDL[pd.getDay()] + (date === t ? '<em>сегодня</em>' : '') + '</span></header>' +
+      (tg.length || calChips(date) ? '<div class="tags">' + tg.map(function (x) { return '<span class="tag t-' + x.k + '">' + esc(x.t) + '</span>'; }).join('') + calChips(date) + '</div>' : '') +
+      '<ul class="places">' + places + '</ul>' +
+      '<button class="add-meal" data-act="meal-add" data-date="' + date + '">' + ICO.plus + 'Добавить</button>' +
+      '<button class="cook" data-act="cook-edit" data-date="' + date + '">' + ICO.pot + '<span>' + (d.cook ? esc(d.cook) : '<span class="muted">План готовки не задан</span>') + '</span></button>' +
+      '</section>';
   }
   /* место на доске: карточка блюда или пустое место «+ блюдо»; любое место принимает перетаскивание */
   function boardPlace(date, s) {
@@ -875,18 +953,21 @@
     var add = '<form class="add" data-form="pantry-add"><input name="name" placeholder="Что есть дома" aria-label="Продукт" required><input name="qty" placeholder="Сколько" aria-label="Сколько" class="sm">' +
       '<select name="place" aria-label="Где">' + PLACES.map(function (p) { return '<option value="' + p[0] + '">' + p[1] + '</option>'; }).join('') + '</select>' +
       '<input name="until" type="date" class="sm" title="Годен до" aria-label="Годен до"><button class="btn">Добавить</button></form>';
-    var out = add + '<input class="search" type="search" placeholder="Поиск по дому" aria-label="Поиск по дому" value="' + esc(UI.q) + '" data-input="q">';
+    var out = add + '<input class="search" type="search" placeholder="Поиск по дому" aria-label="Поиск по дому" value="' + esc(UI.q) + '" data-input="q">' +
+      (all.length ? '<p class="hint">Карточки можно перетаскивать между холодильником, морозилкой и полками, на телефоне — нажав и подержав.</p>' : '');
+    /* место хранения — цель перетаскивания: карточка продукта бросается в другое место целиком (data-drop-place) */
     PLACES.forEach(function (pl) {
       var li = all.filter(function (p) { return placeKey(p.place) === pl[0]; }).sort(function (a, b) { return (a.until || '9') < (b.until || '9') ? -1 : 1; });
-      out += '<h3 class="place">' + pl[2] + pl[1] + ' <span class="muted">' + li.length + '</span></h3>';
+      out += '<section class="store" data-drop-place="' + pl[0] + '"><h3 class="place">' + pl[2] + pl[1] + ' <span class="muted">' + li.length + '</span></h3>';
       out += li.length ? '<ul class="tiles">' + li.map(function (p) {
         var soon = p.until && p.until <= addDays(t, 2);
-        return '<li class="tile' + (soon ? ' soon' : '') + '"><button class="tbtn" data-act="pantry-edit" data-id="' + esc(p.id) + '">' +
+        return '<li class="tile' + (soon ? ' soon' : '') + '" data-drag data-kind="pantry" data-id="' + esc(p.id) + '"><button class="tbtn" data-act="pantry-edit" data-id="' + esc(p.id) + '">' +
           pic('p', p.name, p.name, 'fi-l') + '<span class="nm">' + esc(p.name) + '</span>' +
           '<span class="sub">' + esc(p.qty || '') + '</span>' + (p.until ? '<span class="sub">до ' + dm(p.until) + '</span>' : '') +
           (p.note ? '<span class="note">' + esc(p.note) + '</span>' : '') + '</button>' +
           (soon ? '<span class="badge warn">' + (p.until < t ? 'просрочено' : 'скоро') + '</span>' : '') + '</li>';
       }).join('') + '</ul>' : '<p class="muted pad">Пусто</p>';
+      out += '</section>';
     });
     return out;
   }
@@ -925,7 +1006,7 @@
   function viewMore() {
     var h = '';
     if (UI.update) h += '<section class="box"><h3>Обновление</h3><p>Вышла версия ' + esc(UI.update.version) + '.</p><button class="btn" data-act="update">Обновить и перезапустить</button></section>';
-    h += viewDevices() + viewFamily();
+    h += viewDevices() + viewFamily() + viewCal();
     var mode = lsGet('mode') || 'auto';
     h += '<section class="box"><h3>Оформление</h3><div class="seg" role="group" aria-label="Тема">' +
       [['auto', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная']].map(function (x) {
@@ -1243,6 +1324,9 @@
       case 'week': UI.week = +b.getAttribute('data-i'); render(); break;
       case 'shopweek': UI.shopWeek = b.getAttribute('data-w'); render(); break;
       case 'week-repeat': repeatWeek(); break;
+      case 'range-open': UI.range = rangePreset('2w'); render(); break;
+      case 'range-preset': UI.range = rangePreset(b.getAttribute('data-v')); render(); break;
+      case 'range-close': UI.range = null; render(); break;
       case 'shop-gen': genModal(); break;
       case 'shop-gen-ok': genApply(); break;
       case 'shop-share': shareShop(); break;
@@ -1306,6 +1390,9 @@
       case 'family-leave': if (confirm('Отключить это устройство от семьи? Данные на устройстве останутся, обмен прекратится.')) (async function () { await familyUse(''); await relayReset(); UI.gsaved = false; UI.gkey = ''; lsSet('gkey', null); setStatus('none'); render(); })(); break;
       case 'sync-now': syncNow(); break;
       case 'gkey-load': googleKey('gload'); break;
+      case 'cal-on': SY.cal = { id: '', sent: {}, at: 0 }; saveSync(); calSync(true); break;
+      case 'cal-now': calSync(true); break;
+      case 'cal-off': if (confirm('Отключить Google Календарь на этом устройстве? Календарь «Меню» останется в Google — его можно удалить в настройках Google Календаря.')) { SY.cal = null; SY.calEv = null; UI.cal = ''; saveSync(); render(); } break;
       case 'gkey-save': googleKey('gsave'); break;
       case 'gkey-forget': if (confirm('Убрать ключ семьи из Google? Данные семьи останутся, войти через Google станет нельзя.')) googleKey('gforget'); break;
       case 'login': login('select_account'); break;
@@ -1340,7 +1427,7 @@
   document.addEventListener('pointerdown', function (e) {
     var card = e.target.closest('[data-drag]');
     if (!card || e.button > 0 || e.target.closest('.chk')) return;
-    DRAG = { card: card, id: card.getAttribute('data-id'), x: e.clientX, y: e.clientY, pid: e.pointerId, touch: e.pointerType !== 'mouse', on: false };
+    DRAG = { card: card, id: card.getAttribute('data-id'), kind: card.getAttribute('data-kind') || 'meal', x: e.clientX, y: e.clientY, pid: e.pointerId, touch: e.pointerType !== 'mouse', on: false };
     if (DRAG.touch) DRAG.timer = setTimeout(function () { if (DRAG && !DRAG.on) dragStart(); }, 350);
   });
   document.addEventListener('pointermove', function (e) {
@@ -1355,7 +1442,7 @@
   document.addEventListener('contextmenu', function (e) { if (DRAG) e.preventDefault(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && DRAG && DRAG.on) { DRAG.over = null; dragEnd(false); } });
   /* после переноса отпускание кнопки не должно открыть окно блюда */
-  document.addEventListener('click', function (e) { if (Date.now() - dragged < 60) { e.stopPropagation(); e.preventDefault(); } }, true);
+  document.addEventListener('click', function (e) { if (performance.now() - dragged < 60 && !e.target.closest('#toast')) { e.stopPropagation(); e.preventDefault(); } }, true);
   function dragStart() {
     var r = DRAG.card.getBoundingClientRect(), g = DRAG.card.cloneNode(true);
     DRAG.on = true; DRAG.dx = DRAG.x - r.left; DRAG.dy = DRAG.y - r.top;
@@ -1369,7 +1456,7 @@
   function dragMove(x, y) {
     DRAG.lx = x; DRAG.ly = y;
     DRAG.ghost.style.transform = 'translate(' + (x - DRAG.dx) + 'px,' + (y - DRAG.dy) + 'px) rotate(-2deg)';
-    var el = document.elementFromPoint(x, y), t = el && el.closest('[data-drop]');
+    var el = document.elementFromPoint(x, y), t = el && el.closest(DRAG.kind === 'pantry' ? '[data-drop-place]' : '[data-drop]');
     if (t !== DRAG.over) { if (DRAG.over) DRAG.over.classList.remove('over'); DRAG.over = t; if (t) t.classList.add('over'); }
   }
   function edgeScroll() {
@@ -1388,8 +1475,14 @@
     if (!d.on) return;
     clearInterval(d.tick); d.ghost.remove(); d.card.classList.remove('lifted'); document.documentElement.classList.remove('dragging');
     if (d.over) d.over.classList.remove('over');
-    dragged = Date.now();
+    dragged = performance.now();
     var to = drop && d.over;
+    if (d.kind === 'pantry') {
+      var pp = S.pantry[d.id], dest = to && to.getAttribute('data-drop-place');
+      if (pp && dest && placeKey(pp.place) !== dest) undoable(pp.name + ' → ' + PLACES.filter(function (x) { return x[0] === dest; })[0][1] + '.', function (c) { c.put('pantry', d.id, { place: dest }); });
+      else if (pendingRender) render();
+      return;
+    }
     if (to && S.meals[d.id] && !(S.meals[d.id].date === to.getAttribute('data-date') && S.meals[d.id].slot === to.getAttribute('data-slot')))
       undoable('Блюдо перенесено.', function (c) { moveMeal(c, d.id, to.getAttribute('data-date'), to.getAttribute('data-slot')); });
     else if (pendingRender) render();
@@ -1448,6 +1541,14 @@
           FAM.key = key; await store.set('famkey', key);
           commit(function (c) { c.put('meta', 'fam_salt', { value: salt }); c.put('meta', 'fam_check', { value: check }); });
         })();
+        break;
+      }
+      case 'range': {
+        var rf2 = g('from'), rt2 = g('to');
+        if (!parseD(rf2) || !parseD(rt2)) { formErr(f, 'Укажите обе даты'); break; }
+        if (rf2 > rt2) { var sw = rf2; rf2 = rt2; rt2 = sw; }
+        if (addDays(rf2, RANGE_MAX - 1) < rt2) { formErr(f, 'Не больше ' + RANGE_MAX + ' дней — сократите период'); break; }
+        UI.range = { from: rf2, to: rt2 }; render();
         break;
       }
       case 'gone': {
@@ -1616,10 +1717,11 @@
     if (h && h.join) await joinFamily(FK.toCode(h.join), true);
     if (h && h.login) {
       var af = lsGet('after') || (lsGet('exchange') && 'sheet'); lsSet('after', null); lsSet('exchange', null);
-      if (h.login === 'ok' && af) { UI.tab = 'more'; render(); if (af === 'sheet') sheetNow(); else await googleKey(af, true); }
+      if (h.login === 'ok' && af) { UI.tab = 'more'; render(); if (af === 'sheet') sheetNow(); else if (af === 'cal') calSync(true); else await googleKey(af, true); }
     }
     if (FAMILY.keys) syncNow(); else setStatus('none');
     if (TAURI) { notifyDay(); setInterval(notifyDay, 10 * 60000); }
+    calAuto(); setInterval(calAuto, 10 * 60000);
   }
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () { });

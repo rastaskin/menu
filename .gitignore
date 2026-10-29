@@ -7,3 +7,6 @@ tests/e2e/*.png
 .hallmark/
 CLAUDE.local.md
 .wrangler/
+# исходники иконок 1024 px из ChatGPT (сотни МБ): в приложение идут сжатые web/icons/food/*.webp
+Иконки еды/
+Иконки ВкусВилл/

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Главное окно: релей синхронизации, вход в Google, Sheets API, ключ семьи в Google Диске (appDataFolder), обновления, уведомление «Не забыть»",
+  "description": "Главное окно: релей синхронизации, вход в Google, Sheets API, ключ семьи в Google Диске (appDataFolder), обновления, уведомление «Не забыть», Google Календарь",
   "windows": [
     "main"
   ],
@@ -15,6 +15,7 @@
         { "url": "https://sheets.googleapis.com/*" },
         { "url": "https://www.googleapis.com/drive/*" },
         { "url": "https://www.googleapis.com/upload/drive/*" },
+        { "url": "https://www.googleapis.com/calendar/*" },
         { "url": "https://menu-relay.menu-relay.workers.dev/*" }
       ]
     },
