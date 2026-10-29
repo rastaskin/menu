@@ -291,6 +291,31 @@
     }
   }
   /* разовый обмен с Google Таблицей: прежний проход sheets.js, слияние в обе стороны */
+  /* 23: перед обменом — что придёт из таблицы на устройство и что уйдёт в таблицу, по листам */
+  async function sheetPreview() {
+    if (!SY.sheetId) return;
+    if (!tokenValid()) { login('select_account'); return; }
+    UI.sheet = 'busy'; render();
+    var R;
+    try { R = SH.decodeAll(await SH.sheetsApi(hfetch, getToken, SY.sheetId).read(), Date.now()); }
+    catch (e) { UI.sheet = ''; render(); return sheetNow(); }   // листов ещё нет или нет доступа — обычный обмен сам скажет, в чём дело
+    UI.sheet = ''; render();
+    var Mg = M.merge(S, R.S), inc = [], out = [];
+    SH.SHEETS.forEach(function (sh) {
+      if (sh.col === 'tomb') return;
+      var a = 0, b = 0;
+      Object.keys(Mg[sh.col] || {}).forEach(function (id) { var x = M.stable(Mg[sh.col][id]); if (!S[sh.col][id] || M.stable(S[sh.col][id]) !== x) a++; if (!R.S[sh.col][id] || M.stable(R.S[sh.col][id]) !== x) b++; });
+      Object.keys(S[sh.col] || {}).forEach(function (id) { if (!Mg[sh.col][id]) a++; });
+      Object.keys(R.S[sh.col] || {}).forEach(function (id) { if (!Mg[sh.col][id]) b++; });
+      if (a) inc.push(sh.title + ': ' + a); if (b) out.push(sh.title + ': ' + b);
+    });
+    if (!inc.length && !out.length) { SY.at = Date.now(); saveSync(); toast('С таблицей всё совпадает — обмениваться нечем.'); render(); return; }
+    modal('<h3>Обмен с таблицей</h3>' +
+      '<h4>Из таблицы на устройство</h4><p>' + (inc.length ? esc(inc.join(', ')) : 'ничего') + '</p>' +
+      '<h4>С устройства в таблицу</h4><p>' + (out.length ? esc(out.join(', ')) : 'ничего') + '</p>' +
+      '<p class="muted">Считаются записи, которые появятся, изменятся или удалятся. Где правили и там и тут — побеждает более поздняя правка.</p>' +
+      '<div class="row"><button type="button" class="btn" data-act="sheet-go">Обменяться</button><button type="button" class="btn ghost" data-act="close">Отмена</button></div>');
+  }
   async function sheetNow() {
     if (!SY.sheetId) return;
     if (!tokenValid()) { login('select_account'); return; }
@@ -812,7 +837,23 @@
       }).join('') + '<button type="button" class="add-week" data-act="range-close">К неделям</button></div>';
     var n = ds.filter(function (d) { return d < t; }).reduce(function (a, d) { return a + mealsOf(d).filter(function (m) { return m.text; }).length; }, 0);
     var eaten = ds.filter(function (d) { return d < t; }).reduce(function (a, d) { return a + mealsOf(d).filter(function (m) { return m.text && m.done; }).length; }, 0);
-    return bar + (n ? '<p class="hint">За прошедшие дни периода съели ' + eaten + ' из ' + n + ' блюд по плану.</p>' : '') + '<div class="board" data-board>' + ds.map(dayCol).join('') + '</div>';
+    return bar + rangeSummary(ds) + weekBody(ds, 'Карточки можно перетаскивать между днями и приёмами пищи, на телефоне — нажав и подержав.');
+  }
+  /* 22: итог периода — сколько съели по плану, сколько из заготовки, сколько потрачено на купленное в неделях периода */
+  function rangeSummary(ds) {
+    var t = today(), past = ds.filter(function (d) { return d < t; }), n = 0, eaten = 0, prep = 0;
+    past.forEach(function (d) { mealsOf(d).forEach(function (m) { if (!m.text) return; n++; if (m.done) eaten++; if (P.isPrep(m)) prep++; }); });
+    var spent = 0, bought = 0;
+    shopGroups().forEach(function (g) {
+      if (!g.dates || !g.dates.some(function (d) { return ds.indexOf(d) >= 0; })) return;
+      g.items.forEach(function (i) { if (i.bought) { bought++; spent += i.price || 0; } });
+    });
+    if (!n && !bought) return '';
+    return '<section class="sum period"><h3>Итог периода</h3><ul>' +
+      (n ? '<li><b>' + Math.round(eaten * 100 / n) + '%</b> съели по плану: ' + eaten + ' из ' + n + ' блюд</li>' : '') +
+      (prep ? '<li><b>' + prep + '</b> ' + plural(prep, 'блюдо', 'блюда', 'блюд') + ' из заготовки</li>' : '') +
+      (bought ? '<li><b>' + (spent ? rub(spent) : bought + ' шт') + '</b> куплено ' + (spent ? 'в неделях периода (' + bought + ' ' + plural(bought, 'покупка', 'покупки', 'покупок') + ')' : 'продуктов в неделях периода') + '</li>' : '') +
+      '</ul></section>';
   }
   function viewMenu() {
     if (UI.range) return viewRange();
@@ -826,8 +867,26 @@
     }).join('') + '<button class="add-week" data-act="week-new">' + ICO.plus + 'Неделя</button>' +
       '<button class="add-week" data-act="week-repeat" title="Скопировать блюда этой недели на следующие 7 дней">Повторить эту</button>' +
       '<button class="add-week" data-act="range-open" title="История и любой отрезок дат">Период…</button></div>';
-    return seg + '<p class="hint">Карточки можно перетаскивать между днями и приёмами пищи, на телефоне — нажав и подержав. Занятое место меняется местами.</p>' +
-      '<div class="board" data-board>' + ws[wi].map(dayCol).join('') + '</div>';
+    return seg + weekBody(ws[wi], 'Карточки можно перетаскивать между днями и приёмами пищи, на телефоне — нажав и подержав. Занятое место меняется местами.');
+  }
+  /* дни недели или периода: доской (по умолчанию) или списком — на телефоне удобнее; подсказка — пока ни разу не перетаскивали */
+  function weekBody(ds, hint) {
+    var list = lsGet('wview') === 'list';
+    var sw = '<div class="seg view-sw" role="group" aria-label="Вид">' + [['board', 'Доской'], ['list', 'Списком']].map(function (x) {
+      var on = (list ? 'list' : 'board') === x[0];
+      return '<button type="button" class="' + (on ? 'on' : '') + '" data-act="wview" data-v="' + x[0] + '" aria-pressed="' + on + '">' + x[1] + '</button>';
+    }).join('') + '</div>';
+    if (list) return sw + '<div class="daylist">' + ds.map(dayList).join('') + '</div>';
+    return sw + (lsGet('hint.board') ? '' : '<p class="hint">' + hint + '</p>') + '<div class="board" data-board>' + ds.map(dayCol).join('') + '</div>';
+  }
+  /* день списком: приёмы пищи строками, как на «Сегодня», без перетаскивания */
+  function dayList(date) {
+    var t = today(), d = dayRec(date) || {}, tg = tags(d.tags), pd = parseD(date);
+    return '<section class="dl' + (date === t ? ' today' : '') + (date < t ? ' past' : '') + '" id="d' + date + '"><h3>' + WDL[pd.getDay()] + ', ' + pd.getDate() + ' ' + MON[pd.getMonth()] + '</h3>' + (date === t ? '<p class="now">сегодня</p>' : '') +
+      (tg.length || calChips(date) ? '<div class="tags">' + tg.map(function (x) { return '<span class="tag t-' + x.k + '">' + esc(x.t) + '</span>'; }).join('') + calChips(date) + '</div>' : '') +
+      '<ul class="plate">' + slotsOf(date).map(function (s) { return mealRow(date, s, false); }).join('') + '</ul>' +
+      '<div class="row"><button class="add-meal" data-act="meal-add" data-date="' + date + '">' + ICO.plus + 'Добавить</button>' +
+      '<button class="cook" data-act="cook-edit" data-date="' + date + '">' + ICO.pot + '<span>' + (d.cook ? esc(d.cook) : '<span class="muted">План готовки не задан</span>') + '</span></button></div></section>';
   }
   /* колонка дня на доске */
   function dayCol(date) {
@@ -856,7 +915,8 @@
     var gs = shopGroups(), cur = shopGroup(gs);
     if (!cur) return '<div class="empty"><h2>Покупок пока нет</h2><p>Составьте меню на неделю — список соберётся из рецептов блюд кнопкой «Собрать из меню». Или добавьте продукт сами. Купленное потом одним нажатием переносится в «Дома».</p>' + addShopForm(wkNum(today())) + '</div>';
     UI.shopWeek = cur.key;
-    var items = cur.items, w = cur.wk;
+    var items = cur.items, w = cur.wk, sq = M.norm(UI.sq);
+    if (sq) items = items.filter(function (i) { return M.norm(i.name).indexOf(sq) >= 0; });
     var plan = 0, got = 0, toMove = 0, n = 0, nGot = 0;
     items.forEach(function (i) {
       if (!i.skip) { plan += i.price || 0; n++; } if (i.bought) { got += i.price || 0; nGot++; } if (i.bought && !i.moved) toMove++;
@@ -888,9 +948,10 @@
       '<section class="sum"><div class="sum-top">' + (plan ? '<b>' + rub(Math.max(0, plan - got)) + '</b><span>осталось из ' + rub(plan) + '</span>'
         : '<b>' + Math.max(0, n - nGot) + '</b><span>осталось купить из ' + n + '</span>') + '</div>' +
       '<div class="bar" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100"><i style="transform:scaleX(' + (pct / 100) + ')"></i></div>' +
-      '<p>Куплено ' + nGot + ' из ' + n + (got ? ' на ' + rub(got) : '') + '</p>' +
+      '<p>Куплено ' + nGot + ' из ' + n + (got ? ' на ' + rub(got) : '') + '</p>' + (famMeta('budget') ? '<p>Бюджет: ' + esc(famMeta('budget')) + '</p>' : '') +
       (toMove ? '<button class="btn wide" data-act="move-home">Купленное → Дома (' + toMove + ')</button>' : '') + acts + '</section>' +
-      addShopForm(w) + body;
+      addShopForm(w) + (cur.items.length > 8 ? '<input class="search" type="search" placeholder="Поиск по покупкам" aria-label="Поиск по покупкам" value="' + esc(UI.sq || '') + '" data-input="sq">' : '') +
+      (sq && !items.length ? '<p class="muted pad">Ничего не нашлось</p>' : '') + body;
   }
   /* «Собрать из меню»: что добавится, что уже в списке, что есть дома, каким блюдам не хватает рецепта */
   function genPlan(g) {
@@ -927,7 +988,7 @@
     var r = genPlan(g);
     closeModal();
     undoable(r.fresh ? 'В покупки добавлено: ' + r.fresh + ' ' + plural(r.fresh, 'продукт', 'продукта', 'продуктов') + '.' : 'Список покупок обновлён.', function (c) {
-      r.add.forEach(function (it) { c.put('shop', it.id, { week: g.wk, name: it.name, qty: it.qty, cat: it.cat, skip: it.skip }); });
+      r.add.forEach(function (it) { c.put('shop', it.id, { week: g.wk, name: it.name, qty: it.qty, cat: it.cat, skip: it.skip, price: (S.shop[it.id] && S.shop[it.id].price) || lastPrice(it.name) }); });
       r.stale.forEach(function (h) { c.del('shop', h.id); });   // блюдо убрали из меню — его продукты, ещё не купленные, тоже
     });
   }
@@ -939,10 +1000,20 @@
     (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { toast('Список скопирован — вставьте его в мессенджер.'); },
       function () { modal('<h3>Список покупок</h3><textarea readonly rows="12" aria-label="Список покупок">' + esc(text) + '</textarea><div class="row"><button type="button" class="btn ghost" data-act="close">Готово</button></div>'); });
   }
+  /* 18: единица к числу: «500» + «г» → «500 г»; свободный текст («2 пачки») остаётся как есть */
+  var UNITS = ['', 'г', 'кг', 'мл', 'л', 'шт', 'уп.'];
+  function unitSelect() { return '<select name="unit" aria-label="Единица" class="unit">' + UNITS.map(function (u) { return '<option value="' + u + '">' + (u || 'ед.') + '</option>'; }).join('') + '</select>'; }
+  function qtyOf(g) { var q = g('qty'), u = g('unit'); return u && /^\d+([.,]\d+)?$/.test(q) ? q + ' ' + u : q; }
+  /* 19: прошлая цена того же продукта — из последней покупки с ценой */
+  function lastPrice(name) {
+    var best = null;
+    M.list(S, 'shop').forEach(function (i) { if (i.price && sameProduct(i.name, name) && (!best || (i._u || 0) > (best._u || 0))) best = i; });
+    return best ? best.price : '';
+  }
   function addShopForm(w) {
     var cats = shopCats();
     return '<form class="add" data-form="shop-add" data-w="' + w + '"><input name="name" placeholder="Добавить продукт" aria-label="Продукт" required>' +
-      '<input name="qty" placeholder="Сколько" aria-label="Сколько" class="sm"><input name="price" placeholder="₽" aria-label="Цена, ₽" inputmode="decimal" class="sm">' +
+      '<input name="qty" placeholder="Сколько" aria-label="Сколько" class="sm">' + unitSelect() + '<input name="price" placeholder="₽ — подставится прошлая" aria-label="Цена, ₽" inputmode="decimal" class="sm">' +
       '<select name="cat" aria-label="Раздел">' + (cats.length ? cats : ['Прочее']).map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('') + '</select>' +
       '<button class="btn">Добавить</button></form>';
   }
@@ -950,11 +1021,11 @@
   function viewHome() {
     var all = M.list(S, 'pantry'), q = M.norm(UI.q), t = today();
     if (q) all = all.filter(function (p) { return M.norm(p.name).indexOf(q) >= 0; });
-    var add = '<form class="add" data-form="pantry-add"><input name="name" placeholder="Что есть дома" aria-label="Продукт" required><input name="qty" placeholder="Сколько" aria-label="Сколько" class="sm">' +
+    var add = '<form class="add" data-form="pantry-add"><input name="name" placeholder="Что есть дома" aria-label="Продукт" required><input name="qty" placeholder="Сколько" aria-label="Сколько" class="sm">' + unitSelect() +
       '<select name="place" aria-label="Где">' + PLACES.map(function (p) { return '<option value="' + p[0] + '">' + p[1] + '</option>'; }).join('') + '</select>' +
       '<input name="until" type="date" class="sm" title="Годен до" aria-label="Годен до"><button class="btn">Добавить</button></form>';
     var out = add + '<input class="search" type="search" placeholder="Поиск по дому" aria-label="Поиск по дому" value="' + esc(UI.q) + '" data-input="q">' +
-      (all.length ? '<p class="hint">Карточки можно перетаскивать между холодильником, морозилкой и полками, на телефоне — нажав и подержав.</p>' : '');
+      (all.length && !lsGet('hint.home') ? '<p class="hint">Карточки можно перетаскивать между холодильником, морозилкой и полками, на телефоне — нажав и подержав.</p>' : '');
     /* место хранения — цель перетаскивания: карточка продукта бросается в другое место целиком (data-drop-place) */
     PLACES.forEach(function (pl) {
       var li = all.filter(function (p) { return placeKey(p.place) === pl[0]; }).sort(function (a, b) { return (a.until || '9') < (b.until || '9') ? -1 : 1; });
@@ -974,15 +1045,17 @@
   function addDays(s, n) { var d = parseD(s); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
 
   function viewRecipes() {
-    var t = today(), byHome = UI.rsort === 'home';
-    var li = M.list(S, 'recipes').map(function (r) {
+    var t = today(), byHome = UI.rsort === 'home', rq = M.norm(UI.rq), all = M.list(S, 'recipes');
+    var li = all.filter(function (r) { return !rq || M.norm(r.name + ' ' + r.text).indexOf(rq) >= 0; }).map(function (r) {
       var st = M.recipeStock(S, r.text, t), n = st.filter(function (g) { return g.home.length; }).length;
       return { r: r, st: st, n: n, k: st.length ? n / st.length : -1 };
     }).sort(function (a, b) { return (byHome ? b.k - a.k || b.n - a.n : 0) || ((a.r.name || '') < (b.r.name || '') ? -1 : 1); });
     return '<button class="btn wide" data-act="recipe-new">' + ICO.plus + 'Новый рецепт</button>' +
       (li.length ? '<div class="seg" role="group" aria-label="Порядок">' + [['abc', 'По алфавиту'], ['home', 'Из того, что дома']].map(function (x) {
         return '<button type="button" class="' + ((UI.rsort || 'abc') === x[0] ? 'on' : '') + '" data-act="rsort" data-v="' + x[0] + '" aria-pressed="' + ((UI.rsort || 'abc') === x[0]) + '">' + x[1] + '</button>';
-      }).join('') + '</div>' : '<p class="muted pad">Рецептов пока нет. Добавьте свой или нажмите на блюдо в «Неделе» — карточка рецепта откроется с его названием.</p>') +
+      }).join('') + '</div>' : all.length ? '' : '<p class="muted pad">Рецептов пока нет. Добавьте свой или нажмите на блюдо в «Неделе» — карточка рецепта откроется с его названием.</p>') +
+      (all.length > 5 ? '<input class="search" type="search" placeholder="Поиск по рецептам и продуктам" aria-label="Поиск по рецептам" value="' + esc(UI.rq || '') + '" data-input="rq">' : '') +
+      (rq && !li.length ? '<p class="muted pad">Ничего не нашлось</p>' : '') +
       '<div class="cards">' + li.map(function (x) {
       var r = x.r, st = x.st, n = x.n, have = '', mt = P.meta(r.text);
       if (st.length) have = '<span class="have' + (n === st.length ? ' all' : '') + '">' + (n === st.length ? ICO.check + 'Всё есть дома' : 'Дома ' + n + ' из ' + st.length) + '</span>';
@@ -1018,7 +1091,10 @@
     h += '<section class="box"><h3>Копия данных</h3><div class="row"><button class="btn ghost" data-act="export">Скачать JSON</button>' +
       '<label class="btn ghost" tabindex="0" role="button">Загрузить JSON<input type="file" accept="application/json,.json" data-input="import" hidden></label>' +
       (UI.backup ? '<button class="btn ghost" data-act="export-backup">Данные до присоединения, ' + new Date(UI.backup).toLocaleDateString('ru-RU') + '</button>' : '') + '</div>' +
-      '<p class="muted">Всё сохраняется на устройстве сразу после каждого изменения, даже без сети.</p></section>';
+      (UI.autobk && UI.autobk.length ? '<p class="muted">Автокопии раз в неделю, на этом устройстве (скачать):</p><div class="row">' + UI.autobk.map(function (at, i) {
+        return '<button class="btn ghost" data-act="autobk" data-i="' + i + '">' + new Date(at).toLocaleDateString('ru-RU') + '</button>';
+      }).join('') + '</div>' : '') +
+      '<p class="muted">Всё сохраняется на устройстве сразу после каждого изменения, даже без сети; раз в неделю приложение само откладывает копию (хранятся 4 последние).</p></section>';
     h += '<section class="box"><h3>О программе</h3><p>Меню, версия <b class="ver">' + esc(CFG.version || '—') + '</b></p><p class="muted">' +
       (TAURI ? 'Приложение для Windows — обновляется само, когда выходит новая версия.' : 'Сайт — новая версия подтягивается при открытии.') + '</p></section>';
     return h;
@@ -1275,10 +1351,21 @@
     var rs = mealRecipes(m), meal = { date: date, slot: slot, name: m.text, rids: rs.map(function (r) { return r.id; }) };
     if (rs.length) recipeView(rs[0].id, meal); else recipeEditor('', meal);
   }
+  /* 21: окно дня — готовка и события («a:Учёба 9:00» в таблице) строками: чьё событие и текст, без кодов */
+  function tagKinds() {
+    var who = function (c, k) { var m = members().filter(function (x) { return x.color === c; })[0]; return [k, m ? 'Занят(а): ' + m.name : k === 'a' ? 'Занятость, синяя метка' : 'Занятость, коралловая метка']; };
+    return [who('blue', 'a'), who('coral', 'g'), ['z', 'Ужин из заготовки'], ['h', 'Праздник'], ['o', 'Прочее']];
+  }
+  function tagRow(k, t) {
+    return '<div class="tagrow"><select name="tk" aria-label="Что за событие">' + tagKinds().map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === k ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join('') + '</select>' +
+      '<input name="tt" value="' + esc(t || '') + '" placeholder="Например, учёба 9:00–15:30" aria-label="Событие"><button type="button" class="link danger" data-act="tag-del" aria-label="Убрать событие">Убрать</button></div>';
+  }
   function cookEditor(date) {
     var d = dayRec(date) || {};
-    modal('<form data-form="cook" data-date="' + date + '"><h3>Готовка, ' + wd(date).toLowerCase() + ' ' + dm(date) + '</h3>' +
-      '<textarea name="cook" rows="3">' + esc(d.cook || '') + '</textarea>' +
+    modal('<form data-form="cook" data-date="' + date + '"><h3>День, ' + wd(date).toLowerCase() + ' ' + dm(date) + '</h3>' +
+      '<label>Готовка<textarea name="cook" rows="3">' + esc(d.cook || '') + '</textarea></label>' +
+      '<fieldset class="tags-ed"><legend>События дня</legend><div data-tags>' + tags(d.tags).map(function (x) { return tagRow(x.k, x.t); }).join('') + '</div>' +
+      '<button type="button" class="link" data-act="tag-add">+ Событие</button></fieldset>' +
       '<div class="row"><button class="btn">Сохранить</button><button type="button" class="btn ghost" data-act="close">Отмена</button></div></form>');
   }
   /* перенести блюдо id на место (date, slot); если место занято — блюдо оттуда встаёт на прежнее место переносимого */
@@ -1314,7 +1401,12 @@
   document.addEventListener('click', function (e) {
     /* в приложении на ПК внешние ссылки открываются в системном браузере */
     var ln = TAURI && e.target.closest('a[href^="http"]');
-    if (ln) { e.preventDefault(); Promise.resolve(TAURI.opener.openUrl(ln.href)).catch(function () { }); return; }   // разрешены только адреса Google (capabilities); прочие ссылки на ПК молча не открываются
+    if (ln) {   // открыть можно только адреса Google (capabilities); прочие — копируем и говорим об этом
+      e.preventDefault();
+      var copyLn = function () { (navigator.clipboard ? navigator.clipboard.writeText(ln.href) : Promise.reject()).then(function () { toast('Ссылка скопирована — вставьте её в браузер.'); }, function () { prompt('Скопируйте ссылку', ln.href); }); };
+      if (/^https:\/\/(docs|accounts)\.google\.com\//.test(ln.href)) Promise.resolve(TAURI.opener.openUrl(ln.href)).catch(copyLn); else copyLn();
+      return;
+    }
     var b = e.target.closest('[data-act]');
     if (!b) { var cd = e.target.closest('.card[data-drag]'); b = cd && cd.querySelector('.mtxt'); }   // вся карточка блюда открывает его, не только текст
     if (!b) return;
@@ -1324,6 +1416,11 @@
       case 'week': UI.week = +b.getAttribute('data-i'); render(); break;
       case 'shopweek': UI.shopWeek = b.getAttribute('data-w'); render(); break;
       case 'week-repeat': repeatWeek(); break;
+      case 'tag-add': { var tw = document.querySelector('#modal [data-tags]'); if (tw) { tw.insertAdjacentHTML('beforeend', tagRow('o', '')); var ni = tw.querySelector('.tagrow:last-child input'); if (ni) ni.focus(); } break; }
+      case 'tag-del': { var tr = b.closest('.tagrow'); if (tr) tr.remove(); break; }
+      case 'wview': lsSet('wview', b.getAttribute('data-v') === 'list' ? 'list' : null); render(); break;
+      case 'sheet-go': closeModal(); sheetNow(); break;
+      case 'autobk': store.get('autobk').then(function (l) { var x = (l || [])[+b.getAttribute('data-i')]; if (x) exportJson(x.S, 'menu-auto-' + new Date(x.at).toISOString().slice(0, 10)); }); break;
       case 'range-open': UI.range = rangePreset('2w'); render(); break;
       case 'range-preset': UI.range = rangePreset(b.getAttribute('data-v')); render(); break;
       case 'range-close': UI.range = null; render(); break;
@@ -1383,7 +1480,7 @@
       case 'sync-tap': if (!FAMILY.keys || UI.gone) { UI.tab = 'more'; lsSet('tab', 'more'); render(); var dv = document.getElementById('devices'); if (dv) dv.scrollIntoView({ block: 'start' }); } else syncNow(); break;
       case 'rotate': rotateModal(); break;
       case 'rotate-ok': rotateFamily(); break;
-      case 'sheet-now': sheetNow(); break;
+      case 'sheet-now': sheetPreview(); break;
       case 'add-device': deviceModal(); break;
       case 'show-words': FK.toWords(FK.fromCode(FAMILY.code)).then(function (w) { b.outerHTML = '<p class="words">' + esc(w) + '</p>'; }); break;
       case 'family-new': (async function () { await familyUse(FK.toCode(FK.newRoot())); await relayReset(); UI.gsaved = false; UI.gkey = ''; lsSet('gkey', null); render(); syncNow(); deviceModal(); })(); break;
@@ -1479,12 +1576,12 @@
     var to = drop && d.over;
     if (d.kind === 'pantry') {
       var pp = S.pantry[d.id], dest = to && to.getAttribute('data-drop-place');
-      if (pp && dest && placeKey(pp.place) !== dest) undoable(pp.name + ' → ' + PLACES.filter(function (x) { return x[0] === dest; })[0][1] + '.', function (c) { c.put('pantry', d.id, { place: dest }); });
+      if (pp && dest && placeKey(pp.place) !== dest) { lsSet('hint.home', 1); undoable(pp.name + ' → ' + PLACES.filter(function (x) { return x[0] === dest; })[0][1] + '.', function (c) { c.put('pantry', d.id, { place: dest }); }); }
       else if (pendingRender) render();
       return;
     }
     if (to && S.meals[d.id] && !(S.meals[d.id].date === to.getAttribute('data-date') && S.meals[d.id].slot === to.getAttribute('data-slot')))
-      undoable('Блюдо перенесено.', function (c) { moveMeal(c, d.id, to.getAttribute('data-date'), to.getAttribute('data-slot')); });
+      { lsSet('hint.board', 1); undoable('Блюдо перенесено.', function (c) { moveMeal(c, d.id, to.getAttribute('data-date'), to.getAttribute('data-slot')); }); }
     else if (pendingRender) render();
   }
 
@@ -1518,11 +1615,16 @@
         });
         break;
       }
-      case 'cook': { var d = f.getAttribute('data-date'), r = dayRec(d); closeModal(); commit(function (c) { c.put('days', r ? r.id : 'd' + d, { date: d, cook: g('cook') }); }); break; }
+      case 'cook': {
+        var d = f.getAttribute('data-date'), r = dayRec(d), tk = fd.getAll('tk'), tt = fd.getAll('tt').map(function (x) { return String(x).replace(/;/g, ',').trim(); });
+        var tg = tt.map(function (x, i) { return x ? tk[i] + ':' + x : ''; }).filter(Boolean).join('; ');
+        closeModal(); commit(function (c) { c.put('days', r ? r.id : 'd' + d, { date: d, cook: g('cook'), tags: tg }); });
+        break;
+      }
       case 'shop': { var id = f.getAttribute('data-id'); closeModal(); commit(function (c) { c.put('shop', id, { name: g('name'), qty: g('qty'), price: g('price'), cat: g('cat'), week: +g('week') || (S.shop[id] && S.shop[id].week) || wkNum(today()) }); }); break; }
-      case 'shop-add': commit(function (c) { c.put('shop', uid('s'), { name: g('name'), qty: g('qty'), price: g('price'), cat: g('cat'), week: +f.getAttribute('data-w') || wkNum(today()) }); }); break;
+      case 'shop-add': commit(function (c) { c.put('shop', uid('s'), { name: g('name'), qty: qtyOf(g), price: g('price') || lastPrice(g('name')), cat: g('cat'), week: +f.getAttribute('data-w') || wkNum(today()) }); }); break;
       case 'pantry': { var pid = f.getAttribute('data-id'); closeModal(); commit(function (c) { c.put('pantry', pid, { name: g('name'), qty: g('qty'), place: g('place'), until: g('until'), note: g('note') }); }); break; }
-      case 'pantry-add': commit(function (c) { c.put('pantry', uid('p'), { name: g('name'), qty: g('qty'), place: g('place'), until: g('until') }); }); break;
+      case 'pantry-add': commit(function (c) { c.put('pantry', uid('p'), { name: g('name'), qty: qtyOf(g), place: g('place'), until: g('until') }); }); break;
       case 'recipe': {
         var rid = f.getAttribute('data-id') || uid('r'), rtext = P.compose({ portions: g('portions'), minutes: g('minutes'), products: String(fd.get('products') || ''), steps: String(fd.get('text') || '') });
         if (rtext.length > RECIPE_MAX) { var rer = f.querySelector('.err'); rer.textContent = 'Слишком длинный рецепт: до ' + RECIPE_MAX.toLocaleString('ru-RU') + ' знаков.'; rer.hidden = false; break; }
@@ -1611,7 +1713,8 @@
     var t = e.target, er = t.form && t.form.querySelector('.err');
     if (er) er.hidden = true;
     if (t.name === 'text' && t.form && t.form.getAttribute('data-form') === 'meal') rguess();
-    if (t.getAttribute('data-input') === 'q') { UI.q = t.value; var pos = t.selectionStart; render(); var n = document.querySelector('[data-input="q"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (x) { } } }
+    var sk = t.getAttribute('data-input');
+    if (sk === 'q' || sk === 'sq' || sk === 'rq') { UI[sk] = t.value; var pos = t.selectionStart; render(); var n = document.querySelector('[data-input="' + sk + '"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (x) { } } }
   });
   document.addEventListener('change', function (e) {
     var t = e.target, di = t.getAttribute('data-input'), fl = t.files ? Array.prototype.slice.call(t.files) : [];
@@ -1696,6 +1799,29 @@
       .catch(function () { });
   }
 
+  /* 24: автокопия — раз в 7 дней снимок данных в IndexedDB `autobk`, 4 последних; скачать — в «Ещё» → «Копия данных» */
+  var AUTOBK_EVERY = 7 * 86400000;
+  async function autoBackup() {
+    var l = (await store.get('autobk')) || [];
+    var has = M.list(S, 'meals').length || M.list(S, 'shop').length || M.list(S, 'pantry').length || M.list(S, 'recipes').length;
+    if (has && (!l.length || Date.now() - l[0].at > AUTOBK_EVERY)) { l = [{ at: Date.now(), S: M.clone(S) }].concat(l).slice(0, 4); await store.set('autobk', l); }
+    UI.autobk = l.map(function (x) { return x.at; });
+  }
+  /* 26: «Что нового» — один раз после обновления до версии, для которой есть заметки */
+  var CHANGES = {
+    '0.6.0': ['Неделя: вид «Списком» — удобно на телефоне; подсказка про перетаскивание пропадает после первого переноса',
+      'Покупки и «Дома»: единица к количеству (г, кг, мл, л, шт); цена подставляется из прошлой покупки; бюджет под итогом; поиск',
+      'Рецепты: поиск по названию и продуктам', 'Окно дня: события («учёба», «праздник») строками, без кодов',
+      'Период: итог — сколько съели по плану и сколько потрачено', 'Таблица: перед обменом видно, что придёт и что уйдёт',
+      'Автокопия данных раз в неделю', 'На ПК ссылки, которые нельзя открыть, копируются']
+  };
+  function whatsNew() {
+    var v = CFG.version, seen = lsGet('seenVer') || (M.list(S, 'meals').length ? 'old' : '');   // до 0.6.0 версию не запоминали: есть данные — значит, обновились
+    lsSet('seenVer', v);
+    if (!seen || seen === v || !CHANGES[v] || document.querySelector('#modal .sheet')) return;
+    modal('<h3>Что нового в версии ' + esc(v) + '</h3><ul class="gen">' + CHANGES[v].map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' +
+      '<div class="row"><button type="button" class="btn" data-act="close">Понятно</button></div>');
+  }
   async function init() {
     var h = readHash();
     var st = await store.get('state'), st2 = lsGet('state');
@@ -1722,6 +1848,7 @@
     if (FAMILY.keys) syncNow(); else setStatus('none');
     if (TAURI) { notifyDay(); setInterval(notifyDay, 10 * 60000); }
     calAuto(); setInterval(calAuto, 10 * 60000);
+    autoBackup().then(function () { if (UI.tab === 'more') render(); }); whatsNew();
   }
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () { });

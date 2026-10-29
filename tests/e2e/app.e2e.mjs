@@ -143,6 +143,11 @@ test('приложение: таблица по кнопке, семья чер�
     const row = fake.book.sheets['Меню'].find((r) => r[0] === '2026-10-28/обед'); row[mh.indexOf('блюдо')] = 'Суп от Claude'; row[mh.indexOf('_u')] = '';
     await p.click('.tabs [data-tab="more"]');
     await p.click('[data-act="sheet-now"]');
+    await p.waitForSelector('#modal h3:text("Обмен с таблицей")');   // сначала — что придёт и что уйдёт
+    assert.match(await p.textContent('#modal'), /Из таблицы на устройство\s*Меню: 1/);
+    assert.match(await p.textContent('#modal'), /С устройства в таблицу\s*Меню: \d+/);
+    assert.equal(await p.evaluate(() => window.__menu.S.meals['2026-10-28/обед'].text === 'Суп от Claude'), false, 'до подтверждения ничего не изменилось');
+    await p.click('#modal [data-act="sheet-go"]');
     await p.waitForFunction(() => window.__menu.S.meals['2026-10-28/обед'].text === 'Суп от Claude');
     assert.ok(await until(() => cell() === 'Плов с курицей'), 'обмен отправил правки устройства в таблицу');
     await synced(p);
