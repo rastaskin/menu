@@ -74,7 +74,11 @@ test('неделя списком, единицы и прошлая цена, б
     await p.evaluate(() => { localStorage.setItem('menu.seenVer', JSON.stringify('0.5.0')); });
     await p.reload();
     const ver = await p.evaluate(() => window.MCONFIG.version);
-    if (ver === '0.6.0') { await p.waitForSelector('#modal h3:text("Что нового в версии 0.6.0")'); await p.click('#modal button[data-act="close"]'); }
+    await p.waitForTimeout(300);
+    if (await p.locator('#modal h3:has-text("Что нового в версии")').count()) {   // у текущей версии есть заметки — окно один раз
+      assert.match(await p.textContent('#modal h3'), new RegExp('Что нового в версии ' + ver.replace(/\./g, '\.')));
+      await p.click('#modal button[data-act="close"]');
+    }
     await p.waitForSelector('[data-act="autobk"]');
     await p.reload();
     assert.equal(await p.locator('#modal .sheet').count(), 0, '«Что нового» — один раз');
