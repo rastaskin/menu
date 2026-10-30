@@ -28,8 +28,12 @@ test('рецепт по частям: порции, время, продукты
   const o = P.split(text);
   assert.deepEqual(o, { portions: 2, minutes: 15, products: '— яйца — 4 шт\n— соль — ¼ ч. л.\nГарнир: рис.', steps: '1. Взбить.\n2. На пару.' });
   const back = P.compose(o);
-  assert.match(back, /^2 порции · 15 минут\n\n## Продукты\n— яйца — 4 шт/);
-  assert.deepEqual(P.split(back), o, 'разбор собранного даёт то же');
+  assert.match(back, /^2 порции · 15 минут\n\n## Продукты\n- яйца — 4 шт/);
+  assert.deepEqual(P.split(back), Object.assign({}, o, { products: '- яйца — 4 шт\n- соль — ¼ ч. л.\nГарнир: рис.' }), 'разбор собранного даёт то же, маркер — «-»');
+  assert.equal(P.compose({ products: 'яйца 4 шт\nмолоко - 200 мл\nзелёный лук\nГарнир: рис или перловка', steps: '' }), '## Продукты\n- яйца — 4 шт\n- молоко — 200 мл\n- зелёный лук\nГарнир: рис или перловка', 'без длинного тире');
+  assert.deepEqual(P.splitQty('Творог 9% 400 г'), { name: 'Творог 9%', qty: '400 г' });
+  assert.deepEqual(P.splitQty('соль по вкусу'), { name: 'соль', qty: 'по вкусу' });
+  assert.deepEqual(P.splitQty('фунчоза'), { name: 'фунчоза', qty: '' });
   assert.equal(P.compose({ portions: 4, products: 'фарш — 500 г', steps: 'Жарить' }), '4 порции\n\n## Продукты\n- фарш — 500 г\n\n## Как готовить\nЖарить');
   assert.equal(P.compose(P.split('Просто текст')), 'Просто текст', 'рецепт без разделов не меняется');
   assert.deepEqual(P.meta('6 порций · 1 ч 20 минут'), { portions: 6, minutes: 80 });

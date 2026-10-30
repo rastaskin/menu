@@ -64,7 +64,7 @@ test('план → покупки → дома: сбор покупок из м�
     // окно блюда: время из старого текста, рецепт выбирается явно, на карточке — время
     await p.click('.tabs [data-tab="menu"]');
     await p.click('#d2026-10-28 .place[data-slot="ужин"] .mtxt');
-    await p.click('#modal [data-act="meal-edit"]');   // рецепта у блюда нет — карточка нового рецепта, оттуда окно блюда
+    await p.waitForSelector('#modal form[data-form="meal"]');   // рецепта у блюда нет — сразу окно блюда
     assert.equal(await p.inputValue('#modal [name="time"]'), '17:00');
     assert.doesNotMatch(await p.inputValue('#modal [name="text"]'), /17:00/);
     await p.click('#modal [data-act="rtoggle"]:text("Джимдак неострый")');
@@ -78,12 +78,12 @@ test('план → покупки → дома: сбор покупок из м�
     await p.click('#modal [data-act="close"].btn');
 
     // «повторить эту»: та же неделя на следующие 7 дней, «Отменить» убирает
-    await p.click('main .seg [data-act="week"] >> nth=0');
-    await p.click('[data-act="week-repeat"]');
-    assert.equal(await p.locator('main .seg [data-act="week"]').count(), 3);
+    await p.click('[data-act="week-pick"]'); await p.click('#modal [data-act="week"] >> nth=0');
+    await p.click('[data-act="week-menu"]'); await p.click('#modal [data-act="week-repeat"]');
+    assert.equal(await p.getAttribute('.weekbar', 'data-weeks'), '3');
     assert.equal(await S(() => window.__menu.S.meals['2026-11-10/завтрак'].text), await S(() => window.__menu.S.meals['2026-10-27/завтрак'].text));
     await p.click('#toast [data-act="toast"]:text("Отменить")');
-    assert.equal(await p.locator('main .seg [data-act="week"]').count(), 2);
+    assert.equal(await p.getAttribute('.weekbar', 'data-weeks'), '2');
 
     // «Дома» → «Закончилось» → «В покупки»
     await p.click('.tabs [data-tab="home"]');

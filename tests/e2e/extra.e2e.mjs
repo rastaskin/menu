@@ -58,7 +58,7 @@ test('иконки, «Дома» перетаскиванием, период д
 
     // «Неделя» → «Период…»: история и любой отрезок до 31 дня
     await p.click('.tabs [data-tab="menu"]');
-    await p.click('[data-act="range-open"]');
+    await p.click('[data-act="week-menu"]'); await p.click('#modal [data-act="range-open"]');
     assert.equal(await p.locator('[data-board] .col').count(), 14, 'по умолчанию — 2 недели до сегодня');
     assert.equal(await p.locator('[data-board] .col.past').count(), 13);
     await p.click('[data-act="range-preset"][data-v="month"]');
@@ -74,7 +74,7 @@ test('иконки, «Дома» перетаскиванием, период д
     assert.equal(await p.locator('[data-board] .col').count(), 3);
     assert.match(await p.textContent('#d2026-10-28'), /Борщ с говядиной/);
     await p.click('[data-act="range-close"]');
-    assert.ok(await p.locator('main .seg [data-act="week"]').count() >= 2);
+    assert.ok(+(await p.getAttribute('.weekbar', 'data-weeks')) >= 2);
 
     // Google Календарь: свой календарь «Меню» с блюдами, события основного — в днях меню
     await p.click('.tabs [data-tab="more"]');

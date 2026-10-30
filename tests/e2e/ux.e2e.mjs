@@ -36,12 +36,14 @@ test('первый запуск без семьи: неделя, блюдо, п�
       assert.match(await p.textContent('#toast'), /Добавлены дни/);
       const t = await p.evaluate(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); });
 
-      // блюдо на завтрак сегодня, затем нажатие на карточку — карточка рецепта с названием блюда
+      // блюдо на завтрак сегодня, затем нажатие на карточку — окно блюда, из него «Написать рецепт» с названием блюда
       await p.click(`#d${t} .place[data-slot="завтрак"] .slot-empty`);
       await p.fill('#modal textarea[name="text"]', 'Сырники');
       await p.click('#modal button.btn:has-text("Сохранить")');
       await p.waitForSelector(`#d${t} .card .dish:has-text("Сырники")`);
       await p.click(`#d${t} .card .ctop .lbl`);   // вся карточка открывает блюдо
+      await p.waitForSelector('#modal form[data-form="meal"]');
+      await p.click('#modal [data-act="meal-recipe-new"]');
       assert.equal(await p.textContent('#modal h3'), 'Новый рецепт');
       assert.equal(await p.getAttribute('#modal .sheet', 'aria-modal'), 'true');
       assert.equal(await p.inputValue('#modal [name="name"]'), 'Сырники');
@@ -49,19 +51,21 @@ test('первый запуск без семьи: неделя, блюдо, п�
       assert.equal(await p.locator('#modal .sheet').count(), 0, 'Esc закрывает окно');
 
       // «+ Неделя» — следующие 7 дней
-      await p.click('.seg [data-act="week-new"]');
-      assert.equal(await p.locator('.seg [data-act="week"]').count(), 2);
-      await p.click('.seg [data-act="week"] >> nth=0');
+      await p.click('[data-act="week-menu"]'); await p.click('#modal [data-act="week-new"]');
+      assert.equal(await p.getAttribute('.weekbar', 'data-weeks'), '2');
+      await p.click('.weekbar [data-act="week"] >> nth=0');   // ‹ — к первой неделе
       await p.screenshot({ path: `tests/e2e/shot-ux-week-${name}.png` });
 
       // покупки: форма сверху, отметка «куплено» прямо на плитке, перенос домой с сообщением
       await p.click('.tabs [data-tab="shop"]');
-      await p.fill('form[data-form="shop-add"] [name="name"]', 'Творог');
-      await p.fill('form[data-form="shop-add"] [name="qty"]', '400 г');
+      await p.fill('form[data-form="shop-add"] [name="name"]', 'Творог 400 г');   // одно поле: количество отделится само
       await p.click('form[data-form="shop-add"] button');
-      await p.waitForSelector('.tile:has-text("Творог")');
-      await p.click('.tile:has-text("Творог") [data-act="buy-quick"]');
-      await p.waitForSelector('.tile.bought:has-text("Творог") [aria-pressed="true"]');
+      await p.waitForSelector('main li:has-text("Творог")');
+      assert.ok(await p.evaluate(() => Object.values(window.__menu.S.shop).some((i) => i.name === 'Творог' && i.qty === '400 г' && i.cat === 'Молочное')));
+      assert.equal(await p.locator(name === 'phone' ? '.srow' : '.tile').count(), 1, 'на телефоне — списком, на ПК — плитками');
+      await p.click('main li:has-text("Творог") [data-act="buy-quick"]');
+      await p.waitForFunction(() => Object.values(window.__menu.S.shop).some((i) => i.name === 'Творог' && i.bought));
+      assert.match(await p.textContent('.done-sec summary'), /Куплено и есть дома · 1/, 'купленное — свёрнуто внизу');
       await p.click('[data-act="move-home"]');
       assert.match(await p.textContent('#toast'), /Перенесено в «Дома»: 1 продукт/);
       await p.screenshot({ path: `tests/e2e/shot-ux-shop-${name}.png` });

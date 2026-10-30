@@ -101,9 +101,26 @@
     var intro = trim(ls.slice(i0, pi)), rest = ci < 0 ? '' : trim(ls.slice(ci + 1));
     return { portions: o.portions, minutes: o.minutes, products: trim(ls.slice(pi + 1, ci < 0 ? ls.length : ci)), steps: [intro, rest].filter(Boolean).join('\n\n') };
   }
-  /* обратно в текст; строка «продукт — сколько» без маркера получает «- » */
+  /* «творог 5% 400 г», «яйца - 4 шт», «молоко: 200 мл», «соль по вкусу» → {name, qty}; количества нет — qty пусто */
+  var QTY = '((?:\\d+(?:[.,]\\d+)?|[½¼¾⅓⅔])(?:\\s*[–-]\\s*\\d+(?:[.,]\\d+)?)?(?:\\s*[×x]\\s*\\d+(?:[.,]\\d+)?)?\\s*(?:[а-яё]{1,8}\\.?(?:\\s[а-яё]\\.)?)?|по вкусу|щепотк?[аиу]?)';
+  function splitQty(text) {
+    var s = String(text || '').trim(), m;
+    if ((m = /^(.+?)\s+—\s+(.+)$/.exec(s)) || (m = /^(.+?)\s+[-–:]\s+(.+)$/.exec(s)) || (m = /^(.+?):\s*(.+)$/.exec(s)) && new RegExp('^' + QTY + '$', 'i').test(m[2])) return { name: m[1].trim(), qty: m[2].trim() };
+    if ((m = new RegExp('^(.+?)[\\s,]+' + QTY + '$', 'i').exec(s)) && /[а-яёa-z]/i.test(m[1])) return { name: m[1].trim(), qty: m[2].trim() };
+    return { name: s, qty: '' };
+  }
+  /* строка поля «Продукты» → «- продукт — сколько»: длинное тире не нужно; заметки вроде «Гарнир: рис или…» остаются как есть */
+  function productLine(l) {
+    var t = l.trim(); if (!t || /^#|^\*\*[^*]+\*\*:?$/.test(t)) return l.replace(/\s+$/, '');
+    var mark = /^([—–*+-]|\d{1,3}[.)])\s+/.test(t), body = t.replace(/^([—–*+-]|\d{1,3}[.)])\s+/, '');
+    if (/ — /.test(body)) return '- ' + body;
+    var q = splitQty(body);
+    if (q.qty) return '- ' + q.name + ' — ' + q.qty;
+    return mark || (!/:/.test(body) && body.split(/\s+/).length <= 4) ? '- ' + body : t;
+  }
+  /* обратно в текст; продукты — строками «- продукт — сколько» */
   function compose(o) {
-    var pr = String(o.products || '').split('\n').map(function (l) { var t = l.trim(); return t && !/^([—–*+-]|\d{1,3}[.)])\s/.test(t) && / — /.test(t) ? '- ' + t : l.replace(/\s+$/, ''); }).join('\n').replace(/^\s+|\s+$/g, '');
+    var pr = String(o.products || '').split('\n').map(productLine).join('\n').replace(/^\s+|\s+$/g, '');
     var st = String(o.steps || '').replace(/^\s+|\s+$/g, ''), out = [], ml = metaLine(+o.portions || 0, +o.minutes || 0);
     if (ml) out.push(ml);
     if (pr) out.push('## Продукты\n' + pr);
@@ -208,7 +225,7 @@
   }
 
   var api = {
-    qty: qty, fmt: fmt, sumQty: sumQty, scale: scale, meta: meta, metaLine: metaLine, split: split, compose: compose, stepsOnly: stepsOnly,
+    qty: qty, fmt: fmt, sumQty: sumQty, scale: scale, splitQty: splitQty, meta: meta, metaLine: metaLine, split: split, compose: compose, stepsOnly: stepsOnly,
     isPrep: isPrep, mealParts: mealParts, mealRecipes: mealRecipes, catFor: catFor, fromMenu: fromMenu, shareText: shareText,
     allergens: allergens, allergyHits: allergyHits
   };

@@ -20,7 +20,7 @@ test('неделя — доска: перенос мышью и пальцем �
     await p.click('.tabs [data-tab="more"]');
     await p.setInputFiles('[data-input="import"]', { name: 'seed.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(seed)) });
     await p.click('.tabs [data-tab="menu"]');
-    await p.click('.seg button >> nth=0');
+    await p.click('[data-act="week-pick"]'); await p.click('#modal [data-act="week"] >> nth=0');
     await p.waitForSelector('[data-board] .col');
     await p.evaluate(() => { document.querySelector('[data-board]').scrollLeft = 0; });   // доска открывается на сегодняшнем дне — начинаем с первого
 
@@ -49,8 +49,10 @@ test('неделя — доска: перенос мышью и пальцем �
     await p.waitForTimeout(600); await p.screenshot({ path: 'tests/e2e/shot-week-recipe.png' });
     await p.click('#modal [data-act="close"].btn');
 
-    // рецепта нет — новая карточка с названием блюда; текст можно загрузить из .md
+    // рецепта нет — окно блюда, из него «Написать рецепт»: карточка с названием блюда; текст можно загрузить из .md
     await p.click(place(D1, 'перекус') + ' .mtxt');
+    await p.waitForSelector('#modal form[data-form="meal"]');
+    await p.click('#modal [data-act="meal-recipe-new"]');
     assert.equal(await p.textContent('#modal h3'), 'Новый рецепт');
     assert.equal(await p.inputValue('#modal [name="name"]'), 'Кефир + яблоко');
     await p.setInputFiles('#modal [data-input="recipe-md"]', { name: 'kefir.md', mimeType: 'text/markdown', buffer: Buffer.from('\uFEFF# Кефир с яблоком\r\n\r\n- кефир\r\n- яблоко\r\n') });
@@ -107,7 +109,8 @@ test('неделя — доска: перенос мышью и пальцем �
     // без мыши: перенос из окна блюда (день и приём), занятое место меняется
     const e = await meal(p, D2, 'перекус');
     await p.click(place(D1, 'полдник') + ' .mtxt');
-    await p.click('#modal [data-act="meal-edit"]');
+    await p.waitForSelector('#modal .sheet'); if (!(await p.locator('#modal form[data-form="meal"]').count())) await p.click('#modal [data-act="meal-edit"]');
+    await p.click('#modal details.more summary');   // перенос — в «Ещё»
     await p.selectOption('#modal [name="to_date"]', D2); await p.selectOption('#modal [name="to_slot"]', 'перекус');
     await p.click('#modal button.btn:has-text("Сохранить")');
     await p.waitForFunction(([d]) => Object.values(window.__menu.S.meals).some((x) => x.date === d && x.slot === 'перекус' && x.text === 'Творог с ягодами'), [D2]);
@@ -135,7 +138,7 @@ test('неделя — доска: перенос мышью и пальцем �
     const m = await browser.newPage({ viewport: { width: 390, height: 844 } }); m.on('pageerror', (er) => errors.push(String(er)));
     await m.goto(base); await m.click('.tabs [data-tab="more"]');
     await m.setInputFiles('[data-input="import"]', { name: 'seed.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(seed)) });
-    await m.click('.tabs [data-tab="menu"]'); await m.click('.seg button >> nth=0');
+    await m.click('.tabs [data-tab="menu"]'); await m.click('[data-act="week-pick"]'); await m.click('#modal [data-act="week"] >> nth=0');
     assert.ok(await m.evaluate(() => { const b = document.querySelector('[data-board]'); return b.scrollWidth > b.clientWidth; }), 'доска шире экрана');
     assert.ok(await m.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'страница не уезжает вбок');
     await m.screenshot({ path: 'tests/e2e/shot-board-mobile.png' });

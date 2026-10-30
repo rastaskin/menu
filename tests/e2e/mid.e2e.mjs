@@ -45,16 +45,14 @@ test('неделя списком, единицы и прошлая цена, б
     // покупки: число + единица, прошлая цена, бюджет, поиск
     await p.click('.tabs [data-tab="shop"]');
     assert.match(await p.textContent('.sum'), /Бюджет: 12–16 тыс\. ₽ на 2 недели/);
-    await p.fill('form[data-form="shop-add"] [name="name"]', 'Творог 9%');
-    await p.fill('form[data-form="shop-add"] [name="qty"]', '400');
-    await p.selectOption('form[data-form="shop-add"] [name="unit"]', 'г');
+    await p.fill('form[data-form="shop-add"] [name="name"]', 'Творог 9% 400 г');
     await p.click('form[data-form="shop-add"] button');
     const it = await p.evaluate(() => Object.values(window.__menu.S.shop).find((i) => i.name === 'Творог 9%'));
     assert.equal(it.qty, '400 г');
     assert.ok(it.price > 0, 'цена — из прошлой покупки творога');
     await p.fill('[data-input="sq"]', 'твор');
-    assert.ok(await p.locator('.tile').count() >= 2);
-    assert.equal(await p.locator('.tile:has-text("Бананы")').count(), 0);
+    assert.ok(await p.locator('.srow').count() >= 2);
+    assert.equal(await p.locator('.srow:has-text("Бананы")').count(), 0);
     assert.equal(await p.evaluate(() => document.activeElement.getAttribute('data-input')), 'sq', 'фокус остаётся в поиске');
 
     // рецепты: поиск по названию и продуктам
@@ -65,7 +63,7 @@ test('неделя списком, единицы и прошлая цена, б
 
     // период: итог
     await p.click('.tabs [data-tab="menu"]');
-    await p.click('[data-act="range-open"]');
+    await p.click('[data-act="week-menu"]'); await p.click('#modal [data-act="range-open"]');
     const sum = await p.textContent('.period');
     assert.match(sum, /съели по плану: \d+ из \d+ блюд/);
     assert.match(sum, /из заготовки/);

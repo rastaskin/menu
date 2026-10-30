@@ -69,7 +69,7 @@ test('приложение: таблица по кнопке, семья чер�
     // заменить ужин
     await p.click('.tabs [data-tab="menu"]');
     await p.click('#d2026-10-27 [data-slot="ужин"].mtxt');
-    await p.click('#modal [data-act="meal-edit"]');   // блюдо открывает карточку рецепта, отсюда — окно блюда
+    await p.waitForSelector('#modal .sheet'); if (!(await p.locator('#modal form[data-form="meal"]').count())) await p.click('#modal [data-act="meal-edit"]');   // блюдо открывает карточку рецепта (оттуда — окно блюда) или сразу окно блюда
     await p.fill('#modal textarea', 'Плов с курицей');
     await p.click('#modal button.btn:has-text("Сохранить")');
     assert.match(await p.textContent('#d2026-10-27'), /Плов с курицей/);
@@ -85,17 +85,17 @@ test('приложение: таблица по кнопке, семья чер�
     assert.match(await p.textContent('main'), /дома: Рис басмати 1 кг/);
     await p.screenshot({ path: 'tests/e2e/shot-shop-mobile.png', fullPage: false });
     // нажатие на продукт открывает карточку с крупными кнопками
-    await p.click('li:has-text("Рис круглозёрный") .tbtn');
+    await p.click('li:has-text("Рис круглозёрный") [data-act="shop-card"]');
     await p.waitForSelector('#modal .pcard');
     assert.equal(await p.locator('#modal .pcard .acts .btn').count(), 4);
     await p.click('#modal [data-act="skip"]');
-    await p.waitForSelector('li.skip:has-text("Рис круглозёрный")');
-    await p.click('li:has-text("Яйца С1") .tbtn');
+    await p.waitForSelector('.done-sec li.skip:has-text("Рис круглозёрный")', { state: 'attached' });   // отмеченное — в свёрнутом «Куплено и есть дома»
+    await p.click('li:has-text("Яйца С1") [data-act="shop-card"]');
     await p.waitForSelector('#modal .pcard');
     await p.waitForTimeout(600);   // окно выезжает снизу
     await p.screenshot({ path: 'tests/e2e/shot-card-mobile.png' });
     await p.click('#modal [data-act="buy"]');
-    await p.waitForSelector('li.bought:has-text("Яйца С1")');
+    await p.waitForSelector('.done-sec li.bought:has-text("Яйца С1")', { state: 'attached' });
     await p.click('[data-act="move-home"]');
     await p.click('[data-sync]'); await synced(p);
 

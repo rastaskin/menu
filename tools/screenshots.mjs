@@ -42,7 +42,7 @@ try {
     await shot('week');
 
     await tab('shop');
-    for (let i = 0; i < 3; i++) await p.click('.tile:not(.bought) [data-act="buy-quick"] >> nth=0');
+    for (let i = 0; i < 3; i++) await p.click('[data-act="buy-quick"][aria-pressed="false"] >> nth=0');
     await p.evaluate(() => window.scrollTo(0, 0));
     await p.waitForSelector('#toast', { state: 'hidden' }).catch(() => {});
     await shot('shop');
